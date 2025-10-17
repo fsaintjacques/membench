@@ -16,14 +16,8 @@ pub struct ProfileWriter {
 impl ProfileWriter {
     pub fn new(path: &str) -> Result<Self> {
         let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-
+        let writer = BufWriter::new(file);
         let metadata = ProfileMetadata::new();
-
-        // Write metadata with length prefix
-        let encoded_metadata = bincode::serialize(&metadata)?;
-        writer.write_all(&(encoded_metadata.len() as u16).to_le_bytes())?;
-        writer.write_all(&encoded_metadata)?;
 
         Ok(ProfileWriter {
             file: writer,
@@ -64,6 +58,14 @@ impl ProfileWriter {
         if let (Some(first), Some(last)) = (self.first_timestamp, self.last_timestamp) {
             self.metadata.time_range = (first, last);
         }
+
+        // Write metadata: data first, then length prefix
+        let encoded_metadata = bincode::serialize(&self.metadata)?;
+        self.file.write_all(&encoded_metadata)?;
+        self.file.write_all(&(encoded_metadata.len() as u16).to_le_bytes())?;
+
+        // Write end marker: magic number so we know where metadata ends
+        self.file.write_all(&0xDEADBEEFu32.to_le_bytes())?;
 
         self.file.flush()?;
         Ok(())
