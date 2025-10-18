@@ -2,6 +2,31 @@ use anyhow::{Context, Result};
 use pcap::Capture;
 use std::path::Path;
 
+/// Common interface for packet capture backends
+pub trait PacketSource {
+    /// Read next packet from source
+    fn next_packet(&mut self) -> Result<&[u8]>;
+
+    /// Get human-readable source description (interface name or file path)
+    fn source_info(&self) -> &str;
+
+    /// Whether source is finite (file) vs continuous (interface)
+    fn is_finite(&self) -> bool;
+
+    /// Optional: Get capture statistics (when available)
+    fn stats(&self) -> Option<CaptureStats> {
+        None  // Default: no stats
+    }
+}
+
+/// Optional statistics from capture
+#[derive(Debug, Clone)]
+pub struct CaptureStats {
+    pub packets_received: u64,
+    pub packets_dropped: u64,
+    pub bytes_received: u64,
+}
+
 enum CaptureHandle {
     Live(Capture<pcap::Active>),
     Offline(Capture<pcap::Offline>),
