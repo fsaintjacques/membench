@@ -279,6 +279,22 @@ check_profile() {
     fi
 }
 
+# Analyze the captured profile
+analyze_profile() {
+    if [ ! -f "$PROFILE_OUTPUT" ]; then
+        log_warning "Skipping analysis: profile not found"
+        return 1
+    fi
+
+    log_info "Analyzing profile..."
+    echo ""
+
+    "${PROJECT_ROOT}/target/release/membench" analyze \
+        --input "$PROFILE_OUTPUT"
+
+    log_success "Analysis complete"
+}
+
 # Replay the captured profile
 replay_profile() {
     if [ ! -f "$PROFILE_OUTPUT" ]; then
@@ -372,6 +388,9 @@ main() {
     echo ""
 
     check_profile
+    echo ""
+
+    analyze_profile
     echo ""
 
     replay_profile

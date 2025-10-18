@@ -98,7 +98,18 @@ memtier_benchmark \
 
 Stop the `membench record` process (Ctrl+C in the recording terminal).
 
-### Step 5: Replay the profile
+### Step 5: Analyze the profile
+
+View statistics about the captured traffic:
+
+```bash
+./target/release/membench analyze \
+  --input /tmp/capture.bin
+```
+
+This shows command distribution, key/value sizes, cache hit rates, and more.
+
+### Step 6: Replay the profile
 
 ```bash
 ./target/release/membench replay \
