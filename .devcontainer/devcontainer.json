@@ -1,0 +1,44 @@
+{
+  "name": "membench Development",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": "true"
+    },
+    "ghcr.io/devcontainers/features/rust:1": "latest"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.cargo.features": "all",
+        "editor.formatOnSave": true,
+        "rust-analyzer.cargo.buildScripts.enable": true
+      }
+    }
+  },
+  "mounts": [
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume"
+  ],
+  "postCreateCommand": ".devcontainer/scripts/setup.sh",
+  "runArgs": [
+    "--cap-add=SYS_NICE",
+    "--cap-add=SYS_RESOURCE",
+    "--cap-add=CAP_BPF",
+    "--cap-add=CAP_PERFMON",
+    "--cap-add=CAP_SYS_ADMIN",
+    "--ulimit",
+    "memlock=-1:-1"
+  ],
+  "containerEnv": {
+    "RUST_BACKTRACE": "1"
+  }
+}
