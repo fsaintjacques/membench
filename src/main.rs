@@ -87,11 +87,6 @@ fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> an
             Ok(packet_data) => {
                 packet_count += 1;
 
-                // Log progress every 1000 packets
-                if packet_count % 1000 == 0 {
-                    println!("Captured {} packets, {} events", packet_count, event_count);
-                }
-
                 // Try to parse as memcache command
                 // Note: This is a simplified parser that handles basic cases
                 if let Ok(data_str) = std::str::from_utf8(packet_data) {
@@ -115,10 +110,6 @@ fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> an
 
                             writer.write_event(&event)?;
                             event_count += 1;
-
-                            if event_count % 100 == 0 {
-                                println!("  Captured {} events", event_count);
-                            }
                         }
                     }
                 }
