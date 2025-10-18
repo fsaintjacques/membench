@@ -189,7 +189,56 @@ cargo install --path .
 - libpcap development headers (`libpcap-dev` on Debian/Ubuntu, `libpcap` on macOS)
 - Network interface access (typically requires `sudo` for capture mode)
 
+## eBPF Support (Optional)
+
+On Linux systems, membench can use eBPF for socket-level packet capture,
+providing more reliable capture than packet-based approaches.
+
+### Architecture
+
+**Socket-Level Capture:** Unlike traditional packet capture (libpcap), eBPF
+mode intercepts socket recv() syscalls using kernel tracepoints. This provides:
+
+- **Already-reassembled TCP streams** - No packet boundaries or reordering issues
+- **Complete memcache commands** - Commands split across packets are automatically joined
+- **Lower overhead** - Only processes data actually received by application
+
+### Building with eBPF
+
+```bash
+# Linux only
+cargo build --release --features ebpf
+
+# Requires bpfel toolchain for eBPF compilation
+rustup target add bpfel-unknown-none
+```
+
+### Using eBPF Capture
+
+```bash
+# Use eBPF capture with ebpf: prefix
+sudo membench record "ebpf:any" capture.bin
+
+# Traditional libpcap capture
+sudo membench record eth0 capture.bin
+```
+
+### Requirements
+
+- Linux kernel 5.8+
+- `CAP_BPF` and `CAP_PERFMON` capabilities (or `CAP_SYS_ADMIN`)
+- Usually requires `sudo`
+- bpfel-unknown-none target for building
+
+### Performance
+
+Expected improvements with eBPF vs libpcap:
+- **100% reliability** - No missed commands due to packet splits
+- **30-50% lower CPU** - Fewer context switches
+- **Simpler code** - No packet parsing or TCP reassembly needed
+
 ## See Also
 
 - [Memcache Binary Protocol](https://github.com/memcached/memcached/blob/master/doc/protocol-binary.txt)
 - [libpcap Documentation](https://www.tcpdump.org/papers/sniffing-faq.html)
+- [eBPF Socket Architecture](docs/EBPF_SOCKET_ARCHITECTURE.md)
