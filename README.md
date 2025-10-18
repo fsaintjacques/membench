@@ -18,67 +18,16 @@ The tool works in two phases:
 - **Reproducible Replay**: Replays the sequence of commands from capture, preserving connection topology and access patterns
 - **Deterministic Keys/Values**: Generates reproducible distribution of keys and values based on captured hashes and sizes
 
-## Installation
-
-### From Source
-
-```bash
-git clone https://github.com/yourusername/membench.git
-cd membench
-cargo install --path .
-```
-
-### Requirements
-
-- Rust 1.70+
-- libpcap development headers (`libpcap-dev` on Debian/Ubuntu, `libpcap` on macOS)
-- Network interface access (typically requires `sudo` for capture mode)
-
-## eBPF Support (Optional)
-
-On Linux systems, membench can use eBPF for kernel-space packet capture, reducing overhead compared to libpcap.
-
-### Building with eBPF
-
-```bash
-# Linux only
-cargo build --release --features ebpf
-```
-
-### Using eBPF Capture
-
-```bash
-# Use eBPF capture with ebpf: prefix
-sudo membench record "ebpf:eth0" capture.bin
-
-# Traditional libpcap capture
-sudo membench record eth0 capture.bin
-```
-
-### Requirements
-
-- Linux kernel 5.8+
-- `CAP_BPF` and `CAP_PERFMON` capabilities (or `CAP_SYS_ADMIN`)
-- Usually requires `sudo`
-
-### Performance
-
-Expected improvements with eBPF vs libpcap:
-- 30% faster filtering (kernel-side)
-- 70% faster parsing (Phase 3, in-kernel)
-
 ## Quick Start
 
 ### 1. Capture Traffic from Production
 
 ```bash
 # Capture from eth0 on port 11211
-sudo membench record eth0 production.profile --port 11211 --salt 12345
+sudo membench record eth0 production.profile --port 11211
 ```
 
 This will run indefinitely, capturing all memcache traffic on eth0. Press Ctrl+C to stop.
-
-The `--salt` parameter makes key anonymization reproducible. Omit it to use a random salt.
 
 ### 2. Analyze the Profile
 
@@ -224,9 +173,21 @@ Shows:
 
 Even with access to a profile file, it's impractical to recover original keys if using random salt (the default)
 
-## License
+## Installation
 
-[Your License Here]
+### From Source
+
+```bash
+git clone https://github.com/yourusername/membench.git
+cd membench
+cargo install --path .
+```
+
+### Requirements
+
+- Rust 1.70+
+- libpcap development headers (`libpcap-dev` on Debian/Ubuntu, `libpcap` on macOS)
+- Network interface access (typically requires `sudo` for capture mode)
 
 ## See Also
 
