@@ -34,6 +34,39 @@ cargo install --path .
 - libpcap development headers (`libpcap-dev` on Debian/Ubuntu, `libpcap` on macOS)
 - Network interface access (typically requires `sudo` for capture mode)
 
+## eBPF Support (Optional)
+
+On Linux systems, membench can use eBPF for kernel-space packet capture, reducing overhead compared to libpcap.
+
+### Building with eBPF
+
+```bash
+# Linux only
+cargo build --release --features ebpf
+```
+
+### Using eBPF Capture
+
+```bash
+# Use eBPF capture with ebpf: prefix
+sudo membench record "ebpf:eth0" capture.bin
+
+# Traditional libpcap capture
+sudo membench record eth0 capture.bin
+```
+
+### Requirements
+
+- Linux kernel 5.8+
+- `CAP_BPF` and `CAP_PERFMON` capabilities (or `CAP_SYS_ADMIN`)
+- Usually requires `sudo`
+
+### Performance
+
+Expected improvements with eBPF vs libpcap:
+- 30% faster filtering (kernel-side)
+- 70% faster parsing (Phase 3, in-kernel)
+
 ## Quick Start
 
 ### 1. Capture Traffic from Production
