@@ -14,11 +14,10 @@
 # Options:
 #   --help              Show this help message
 #   --port PORT         Memcached port (default: 11211)
-#   --output FILE       Profile output file (default: /tmp/membench_demo.bin)
+#   --output FILE       Profile output file (default: temporary file)
 #   --clients N         Number of memtier clients (default: 4)
 #   --requests N        Requests per client (default: 1000)
-#   --keep-profile      Don't delete profile after replay
-#   --verbose           Show more detailed output
+#   --keep-profile      Keep profile file after replay (default: delete)
 
 set -e
 
@@ -31,13 +30,15 @@ NC='\033[0m' # No Color
 
 # Default values
 MEMCACHED_PORT=11211
-PROFILE_OUTPUT="/tmp/membench_demo.bin"
 MEMTIER_CLIENTS=4
 MEMTIER_REQUESTS=1000
 KEEP_PROFILE=false
 VERBOSE=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Create temporary profile file
+PROFILE_OUTPUT="$(mktemp /tmp/membench_XXXXXX.bin)"
 
 # Logging functions
 log_info() {
@@ -286,7 +287,7 @@ replay_profile() {
     log_info "  (Replaying 1000 commands, press Ctrl+C to stop)"
 
     # Run replay for a short time then stop
-    timeout 10 "${PROJECT_ROOT}/target/release/membench" replay \
+    sudo "${PROJECT_ROOT}/target/release/membench" replay \
         --input "$PROFILE_OUTPUT" \
         --target "127.0.0.1:$MEMCACHED_PORT" \
         --concurrency 4 \
@@ -313,9 +314,9 @@ cleanup() {
 
     # Clean up profile if not keeping it
     if [ "$KEEP_PROFILE" = false ] && [ -f "$PROFILE_OUTPUT" ]; then
-        log_info "Removing profile: $PROFILE_OUTPUT"
+        log_info "Removing temporary profile: $PROFILE_OUTPUT"
         rm -f "$PROFILE_OUTPUT"
-    else
+    elif [ "$KEEP_PROFILE" = true ] && [ -f "$PROFILE_OUTPUT" ]; then
         log_info "Keeping profile: $PROFILE_OUTPUT"
     fi
 
