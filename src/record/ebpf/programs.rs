@@ -5,6 +5,19 @@ use crate::record::capture::CaptureStats;
 use crate::record::capture::PacketSource;
 use aya::Ebpf;
 
+/// Check if running with required eBPF capabilities
+#[cfg(target_os = "linux")]
+fn check_ebpf_capabilities() -> Result<()> {
+    // TODO: Actually check CAP_BPF and CAP_PERFMON
+    // For now, just return Ok - actual check happens at attach time
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn check_ebpf_capabilities() -> Result<()> {
+    Err(anyhow::anyhow!("eBPF not supported on this platform"))
+}
+
 /// eBPF packet capture using TC ingress hook
 pub struct EbpfCapture {
     interface: String,
@@ -23,6 +36,8 @@ impl EbpfCapture {
     /// Returns error if eBPF program cannot be loaded or attached.
     /// Requires CAP_BPF and CAP_PERFMON capabilities (or CAP_SYS_ADMIN).
     pub fn new(interface: &str, port: u16) -> Result<Self> {
+        check_ebpf_capabilities()?;
+
         // TODO: Load eBPF program from embedded bytecode
         // TODO: Attach to interface TC ingress
         // TODO: Open perf buffer for reading
