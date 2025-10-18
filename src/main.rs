@@ -36,11 +36,34 @@ fn main() {
     tracing_subscriber::fmt::init();
     let cli = Cli::parse();
     match cli.command {
-        Commands::Record { .. } => {
-            println!("Record mode not yet implemented");
+        Commands::Record { interface, port, output, salt } => {
+            if let Err(e) = run_record(&interface, port, &output, salt) {
+                eprintln!("Record error: {}", e);
+                std::process::exit(1);
+            }
         }
         Commands::Replay { .. } => {
             println!("Replay mode not yet implemented");
         }
     }
+}
+
+fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> anyhow::Result<()> {
+    use std::time::SystemTime;
+
+    let salt = salt.unwrap_or_else(|| {
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    });
+
+    println!("Recording from {}:{} to {} (salt: {})", interface, port, output, salt);
+    println!("Capturing memcache traffic... Press Ctrl+C to stop.");
+
+    // TODO: Implement actual recording logic
+    // This would integrate PacketCapture, StreamReassembler, MemcacheParser,
+    // Anonymizer, and ProfileWriter
+
+    Ok(())
 }
