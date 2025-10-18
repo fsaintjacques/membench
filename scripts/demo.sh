@@ -240,8 +240,8 @@ stop_membench_record() {
         if kill -0 "$MEMBENCH_RECORD_PID" 2>/dev/null; then
             kill "$MEMBENCH_RECORD_PID" 2>/dev/null || true
 
-            # Wait for it to finish (max 5 seconds)
-            local max_attempts=50
+            # Wait for it to finish (max 10 seconds)
+            local max_attempts=100
             local attempt=0
             while kill -0 "$MEMBENCH_RECORD_PID" 2>/dev/null; do
                 if [ $attempt -ge $max_attempts ]; then
@@ -254,6 +254,9 @@ stop_membench_record() {
             done
         fi
     fi
+
+    # Give membench time to write the profile file
+    sleep 1
 
     log_success "membench record stopped"
 }
@@ -284,15 +287,16 @@ replay_profile() {
     log_info "Replaying profile..."
     log_info "  Profile: $PROFILE_OUTPUT"
     log_info "  Target: 127.0.0.1:$MEMCACHED_PORT"
-    log_info "  (Replaying 1000 commands, press Ctrl+C to stop)"
+    echo ""
 
-    # Run replay for a short time then stop
-    sudo "${PROJECT_ROOT}/target/release/membench" replay \
+    # Run replay (press Ctrl+C to stop)
+    timeout 30 "${PROJECT_ROOT}/target/release/membench" replay \
         --input "$PROFILE_OUTPUT" \
         --target "127.0.0.1:$MEMCACHED_PORT" \
         --concurrency 4 \
         || true  # timeout returns non-zero
 
+    echo ""
     log_success "Replay complete"
 }
 
