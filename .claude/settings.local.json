@@ -21,7 +21,10 @@
       "Bash(./target/release/membench:*)",
       "Bash(memtier_benchmark --help:*)",
       "Bash(cargo tree:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Read(//home/vscode/.config/**)",
+      "Bash(echo $HOME)",
+      "Read(//home/vscode/.claude/plugins/cache/superpowers/**)"
     ],
     "deny": [],
     "ask": []

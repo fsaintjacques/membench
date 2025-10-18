@@ -26,7 +26,6 @@ fi
 echo ""
 echo "Verifying tcpdump installation..."
 if command -v tcpdump &> /dev/null; then
-    tcpdump -v
     echo "✓ tcpdump available"
 else
     echo "⚠ Warning: tcpdump not found"
@@ -48,9 +47,4 @@ echo "Verifying Rust installation..."
 rustc --version
 cargo --version
 
-# Install useful cargo tools
-echo ""
-echo "Installing cargo tools..."
-cargo install cargo-watch cargo-edit cargo-expand 2>/dev/null || echo "Cargo tools already installed or failed to install"
-
-sudo chown -R vscode:vscode /workspaces
+sudo chown -R vscode:vscode /workspaces 2>/dev/null || true
