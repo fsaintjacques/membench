@@ -141,17 +141,29 @@ fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> an
 
 async fn run_replay(input: &str, target: &str, concurrency: usize) -> anyhow::Result<()> {
     use membench::replay::{ProfileReader, DistributionAnalyzer, TrafficGenerator, ReplayClient};
+    use std::time::{Instant, Duration};
 
     let reader = ProfileReader::new(input)?;
     let analysis = DistributionAnalyzer::analyze(reader.events());
 
-    println!("Profile loaded: {} events, hit rate: {:.2}%",
-             analysis.total_events, analysis.hit_rate * 100.0);
-    println!("Replaying to {} with {} concurrent connections. Press Ctrl+C to stop.",
-             target, concurrency);
+    println!("\n╔════════════════════════════════════════════╗");
+    println!("║         Replay Statistics                  ║");
+    println!("╚════════════════════════════════════════════╝\n");
+    println!("Profile: {}", input);
+    println!("Target: {}", target);
+    println!("Concurrency: {}", concurrency);
+    println!("Total events in profile: {}", analysis.total_events);
+    println!("Command distribution:");
+    for (cmd, count) in &analysis.command_distribution {
+        println!("  {:?}: {}", cmd, count);
+    }
+    println!("Cache hit rate: {:.2}%\n", analysis.hit_rate * 100.0);
+    println!("Starting replay... (Press Ctrl+C to stop)\n");
 
     let mut sent = 0u64;
     let mut errors = 0u64;
+    let start_time = Instant::now();
+    let mut last_report = Instant::now();
 
     loop {
         for _ in 0..concurrency {
@@ -163,9 +175,6 @@ async fn run_replay(input: &str, target: &str, concurrency: usize) -> anyhow::Re
                     match client.send_command(&event) {
                         Ok(_) => {
                             sent += 1;
-                            if sent % 1000 == 0 {
-                                println!("Sent {} commands ({} errors)", sent, errors);
-                            }
                         }
                         Err(e) => {
                             errors += 1;
@@ -178,6 +187,23 @@ async fn run_replay(input: &str, target: &str, concurrency: usize) -> anyhow::Re
                     tracing::warn!("Connection error: {}", e);
                 }
             }
+        }
+
+        // Report statistics every 5 seconds
+        if last_report.elapsed() >= Duration::from_secs(5) {
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let throughput = sent as f64 / elapsed;
+            let error_rate = if sent > 0 {
+                (errors as f64 / (sent + errors) as f64) * 100.0
+            } else {
+                0.0
+            };
+
+            println!(
+                "[{:6}s] Sent: {:8} | Errors: {:6} | Throughput: {:8.0} ops/sec | Error rate: {:.2}%",
+                elapsed as u64, sent, errors, throughput, error_rate
+            );
+            last_report = Instant::now();
         }
 
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
