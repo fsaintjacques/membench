@@ -7,9 +7,7 @@ use anyhow::Result;
 use aya::Ebpf;
 =======
 use anyhow::{Result, Context as _};
-use aya::{Ebpf, maps::RingBuf as AyaRingBuf, programs::TracePoint};
-use aya::util::online_cpus;
-use std::sync::Arc;
+use aya::{Ebpf, include_bytes_aligned, maps::RingBuf as AyaRingBuf, programs::TracePoint};
 use tokio::sync::mpsc;
 use crate::record::capture::{CaptureStats, PacketSource};
 >>>>>>> 4c3e21c (refactor: update EbpfCapture for socket ringbuf capture)
@@ -81,4 +79,81 @@ impl PacketSource for EbpfCapture {
     rx: mpsc::UnboundedReceiver<Vec<u8>>,
     current_packet: Option<Vec<u8>>,
 >>>>>>> 4c3e21c (refactor: update EbpfCapture for socket ringbuf capture)
+}
+
+impl EbpfCapture {
+    pub fn new(interface: &str, port: u16) -> Result<Self> {
+        check_ebpf_capabilities()?;
+
+        // Load eBPF bytecode
+        let mut bpf = Ebpf::load(include_bytes_aligned!(
+            concat!(env!("OUT_DIR"), "/programs")
+        ))?;
+
+        // Attach tracepoint to sys_enter_recvfrom
+        let program: &mut TracePoint = bpf
+            .program_mut("trace_recv_enter")
+            .context("failed to find trace_recv_enter")?
+            .try_into()?;
+        program.load()?;
+        program.attach("syscalls", "sys_enter_recvfrom")?;
+
+        tracing::info!("Attached eBPF tracepoint to sys_enter_recvfrom");
+
+        // Create channel for packets
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        // Spawn task to read from ringbuf
+        let ringbuf: AyaRingBuf<_> = bpf.take_map("EVENTS")
+            .context("failed to get EVENTS map")?
+            .try_into()?;
+
+        tokio::spawn(async move {
+            read_events(ringbuf, tx).await;
+        });
+
+        Ok(EbpfCapture {
+            interface: interface.to_string(),
+            port,
+            _bpf: bpf,
+            rx,
+            current_packet: None,
+        })
+    }
+}
+
+/// Read events from ringbuf and send to channel
+async fn read_events(mut ringbuf: AyaRingBuf<aya::maps::MapData>, tx: mpsc::UnboundedSender<Vec<u8>>) {
+    loop {
+        match ringbuf.next() {
+            Some(event_data) => {
+                // Parse event
+                if event_data.len() >= std::mem::size_of::<SocketDataEvent>() {
+                    let event = unsafe {
+                        &*(event_data.as_ptr() as *const SocketDataEvent)
+                    };
+
+                    let data_len = event.data_len as usize;
+                    if data_len > 0 && data_len <= event.data.len() {
+                        let packet = event.data[..data_len].to_vec();
+                        let _ = tx.send(packet);
+                    }
+                }
+            }
+            None => {
+                // No data available, yield to allow other tasks to run
+                tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn check_ebpf_capabilities() -> Result<()> {
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn check_ebpf_capabilities() -> Result<()> {
+    Err(anyhow::anyhow!("eBPF only supported on Linux"))
 }
