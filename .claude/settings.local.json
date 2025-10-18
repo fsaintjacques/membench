@@ -20,7 +20,8 @@
       "Read(//private/tmp/**)",
       "Bash(./target/release/membench:*)",
       "Bash(memtier_benchmark --help:*)",
-      "Bash(cargo tree:*)"
+      "Bash(cargo tree:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []
