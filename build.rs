@@ -1,9 +1,9 @@
-use std::env;
-use std::path::PathBuf;
-
 fn main() {
     #[cfg(feature = "ebpf")]
     {
+        use std::env;
+        use std::path::PathBuf;
+
         let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
         let _ebpf_dir = PathBuf::from("ebpf");
 
