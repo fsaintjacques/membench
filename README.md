@@ -225,10 +225,17 @@ sudo membench record eth0 capture.bin
 
 ### Requirements
 
-- Linux kernel 5.8+
+- Linux kernel 5.8+ (runtime)
+- x86_64 architecture (for eBPF bytecode compilation)
 - `CAP_BPF` and `CAP_PERFMON` capabilities (or `CAP_SYS_ADMIN`)
 - Usually requires `sudo`
-- bpfel-unknown-none target for building
+- Nightly Rust + bpfel-unknown-none target for building:
+  ```bash
+  rustup toolchain install nightly
+  rustup +nightly target add bpfel-unknown-none
+  ```
+
+**Note:** On ARM/other architectures, the code compiles with a stub (no runtime eBPF support). eBPF compilation requires x86_64.
 
 ### Performance
 
