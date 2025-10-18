@@ -3,7 +3,6 @@ use pcap::Capture;
 
 pub struct PacketCapture {
     handle: Capture<pcap::Active>,
-    port: u16,
 }
 
 impl PacketCapture {
@@ -19,7 +18,7 @@ impl PacketCapture {
         cap.filter(&filter, true)
             .context("failed to set filter")?;
 
-        Ok(PacketCapture { handle: cap, port })
+        Ok(PacketCapture { handle: cap })
     }
 
     pub fn list_devices() -> Result<Vec<String>> {
