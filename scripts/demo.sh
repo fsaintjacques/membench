@@ -201,9 +201,11 @@ start_membench_record() {
     fi
 
     # Start membench record in background
-    # Note: This requires sudo for packet capture
-    # For demo purposes, we'll attempt without sudo first
-    sudo "${PROJECT_ROOT}/target/release/membench" record \
+    # Note: Packet capture requires elevated privileges. You can either:
+    # 1. Run this script with sudo: sudo ./scripts/demo.sh
+    # 2. Grant capabilities to the binary (Linux): sudo setcap cap_net_raw,cap_net_admin=eip ./target/release/membench
+    # 3. Modify macOS permissions: sudo chmod +rw /dev/bpf*
+    "${PROJECT_ROOT}/target/release/membench" record \
         --interface "$interface" \
         --port "$MEMCACHED_PORT" \
         --output "$PROFILE_OUTPUT" \
