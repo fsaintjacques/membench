@@ -12,11 +12,12 @@ use crate::replay::{
     spawn_connection_task,
     reader_task,
     LoopMode,
+    ProtocolMode,
 };
 use crate::profile::Event;
 
-pub async fn run(input: &str, target: &str, loop_mode: &str, should_exit: Arc<AtomicBool>) -> Result<()> {
-    tracing::info!("Starting replay: input={}, target={}, mode={}", input, target, loop_mode);
+pub async fn run(input: &str, target: &str, loop_mode: &str, protocol_mode: ProtocolMode, should_exit: Arc<AtomicBool>) -> Result<()> {
+    tracing::info!("Starting replay: input={}, target={}, mode={}, protocol={}", input, target, loop_mode, protocol_mode);
 
     // Parse loop mode
     let loop_mode = match loop_mode {
@@ -52,7 +53,7 @@ pub async fn run(input: &str, target: &str, loop_mode: &str, should_exit: Arc<At
         let counter_clone = Arc::clone(&sent_counter);
         let target = target.to_string();
 
-        let task_handle = spawn_connection_task(conn_id, &target, rx, counter_clone).await?;
+        let task_handle = spawn_connection_task(conn_id, &target, rx, counter_clone, protocol_mode).await?;
         connection_tasks.push(task_handle);
     }
 

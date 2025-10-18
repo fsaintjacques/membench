@@ -18,7 +18,8 @@
       "Bash(cargo clean:*)",
       "Bash(/Users/fsaintjacques/src/membench/target/release/membench:*)",
       "Read(//private/tmp/**)",
-      "Bash(./target/release/membench:*)"
+      "Bash(./target/release/membench:*)",
+      "Bash(memtier_benchmark --help:*)"
     ],
     "deny": [],
     "ask": []

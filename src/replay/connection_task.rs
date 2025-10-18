@@ -2,6 +2,7 @@ use anyhow::Result;
 use tokio::sync::mpsc;
 use crate::profile::Event;
 use super::client::ReplayClient;
+use super::ProtocolMode;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -11,11 +12,12 @@ pub async fn spawn_connection_task(
     target: &str,
     rx: mpsc::Receiver<Event>,
     sent_counter: Arc<AtomicU64>,
+    protocol_mode: ProtocolMode,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
     let target = target.to_string();
 
     let handle = tokio::spawn(async move {
-        let mut client = ReplayClient::new(&target).await?;
+        let mut client = ReplayClient::new(&target, protocol_mode).await?;
         let mut rx = rx;
 
         while let Some(event) = rx.recv().await {

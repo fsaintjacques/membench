@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use membench::record::run_record;
 use membench::analyze::run_analyze;
-use membench::replay::run_replay;
+use membench::replay::{run_replay, ProtocolMode};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -46,6 +46,9 @@ enum Commands {
         /// Loop mode: once, infinite, or times:N
         #[arg(short, long, default_value = "once")]
         loop_mode: String,
+        /// Protocol mode: ascii (old) or meta (new)
+        #[arg(long, default_value = "meta")]
+        protocol_mode: String,
     },
 }
 
@@ -80,7 +83,16 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        Commands::Replay { file, target, concurrency: _, loop_mode } => {
+        Commands::Replay { file, target, concurrency: _, loop_mode, protocol_mode } => {
+            // Parse protocol mode at CLI boundary
+            let protocol_mode = match ProtocolMode::from_str(&protocol_mode) {
+                Ok(mode) => mode,
+                Err(e) => {
+                    eprintln!("Replay error: {}", e);
+                    std::process::exit(1);
+                }
+            };
+
             let should_exit = Arc::new(AtomicBool::new(false));
             let should_exit_clone = Arc::clone(&should_exit);
 
@@ -91,7 +103,7 @@ async fn main() {
                 eprintln!("Failed to set signal handler: {}", e);
             });
 
-            if let Err(e) = run_replay(&file, &target, &loop_mode, should_exit).await {
+            if let Err(e) = run_replay(&file, &target, &loop_mode, protocol_mode, should_exit).await {
                 eprintln!("Replay error: {}", e);
                 std::process::exit(1);
             }

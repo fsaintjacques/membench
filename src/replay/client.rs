@@ -2,18 +2,21 @@ use anyhow::Result;
 use tokio::net::TcpStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::profile::{Event, CommandType};
+use super::ProtocolMode;
 
 pub struct ReplayClient {
     stream: TcpStream,
     buffer: Vec<u8>,
+    protocol_mode: ProtocolMode,
 }
 
 impl ReplayClient {
-    pub async fn new(target: &str) -> Result<Self> {
+    pub async fn new(target: &str, protocol_mode: ProtocolMode) -> Result<Self> {
         let stream = TcpStream::connect(target).await?;
         Ok(ReplayClient {
             stream,
             buffer: vec![0u8; 65536],
+            protocol_mode,
         })
     }
 
@@ -31,6 +34,34 @@ impl ReplayClient {
     fn build_command_string(&self, event: &Event) -> String {
         let key = self.generate_key(event.key_hash, event.key_size);
 
+        match self.protocol_mode {
+            ProtocolMode::Ascii => self.build_ascii_command(&key, event),
+            ProtocolMode::Meta => self.build_meta_command(&key, event),
+        }
+    }
+
+    /// Build ASCII protocol command (get, set, delete)
+    fn build_ascii_command(&self, key: &str, event: &Event) -> String {
+        match event.cmd_type {
+            CommandType::Get => {
+                format!("get {}\r\n", key)
+            }
+            CommandType::Set => {
+                let size = event.value_size.map(|nz| nz.get()).unwrap_or(0);
+                let value = self.generate_value(size);
+                format!("set {} 0 0 {}\r\n{}\r\n", key, size, value)
+            }
+            CommandType::Delete => {
+                format!("delete {}\r\n", key)
+            }
+            CommandType::Noop => {
+                "version\r\n".to_string()
+            }
+        }
+    }
+
+    /// Build Meta protocol command (mg, ms, md, mn)
+    fn build_meta_command(&self, key: &str, event: &Event) -> String {
         match event.cmd_type {
             CommandType::Get => {
                 format!("mg {} v\r\n", key)
@@ -89,7 +120,7 @@ mod tests {
     async fn test_async_client_creation() {
         // This test will pass once ReplayClient uses async
         // We'll verify the compilation and basic structure
-        let client = ReplayClient::new("127.0.0.1:11211").await;
+        let client = ReplayClient::new("127.0.0.1:11211", ProtocolMode::Meta).await;
         // For now, just verify it compiles; actual memcached test requires running server
         assert!(client.is_ok() || client.is_err()); // Accepts either for now
     }
