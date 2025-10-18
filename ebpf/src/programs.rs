@@ -7,7 +7,11 @@
 // Bytecode is platform-independent and portable across Linux distributions.
 
 use aya_ebpf::{macros::*, helpers::*, bindings::*};
+use aya_ebpf::maps::PerfEventArray;
 use aya_log_ebpf::info;
+
+#[map]
+static PACKETS: PerfEventArray<u32> = PerfEventArray::new(0);
 
 /// TC ingress hook for filtering memcache traffic
 ///
@@ -24,12 +28,17 @@ pub fn filter_packets(ctx: TcContext) -> i32 {
 }
 
 fn try_filter_packets(ctx: TcContext) -> Result<i32, i32> {
-    // TODO: Parse packet headers
-    // TODO: Extract TCP port
-    // TODO: Filter by port (11211)
-    // TODO: Send to perf buffer
+    // TODO: Parse Ethernet header
+    // TODO: Parse IP header and extract destination port
+    // TODO: Check if port == 11211
 
-    // For now, pass all packets through (TC_ACT_OK)
+    // For now, send all packets to perf buffer (for testing)
+    // SAFETY: This is safe within eBPF context.
+    // The verifier ensures no out-of-bounds access.
+    unsafe {
+        PACKETS.output(&ctx, &0, 0);
+    }
+
     Ok(TC_ACT_OK)
 }
 
