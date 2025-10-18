@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::record::{PacketCapture, MemcacheParser, Anonymizer, ProfileWriter};
 use crate::profile::Event;
 
-pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Result<()> {
+pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<()> {
     let salt = salt.unwrap_or_else(|| {
         SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -16,14 +16,18 @@ pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Resul
             .as_secs()
     });
 
-    tracing::info!("Recording from {}:{} to {}", interface, port, output);
+    let source_type = if PacketCapture::is_file(source) { "file" } else { "interface" };
+    tracing::info!("Recording from {} ({}):{} to {}", source_type, source, port, output);
     tracing::debug!("Salt: {}", salt);
     tracing::info!("Capturing memcache traffic... Press Ctrl+C to stop.");
-    tracing::debug!("Available devices: {:?}", PacketCapture::list_devices().unwrap_or_default());
+
+    if !PacketCapture::is_file(source) {
+        tracing::debug!("Available devices: {:?}", PacketCapture::list_devices().unwrap_or_default());
+    }
 
     // Initialize components
-    let mut capture = PacketCapture::new(interface, port)?;
-    tracing::debug!("Capture initialized on interface: {}", interface);
+    let mut capture = PacketCapture::from_source(source, port)?;
+    tracing::debug!("Capture initialized from {}: {}", source_type, source);
     let parser = MemcacheParser::new();
     let anonymizer = Anonymizer::new(salt);
     let mut writer = ProfileWriter::new(output)?;

@@ -19,10 +19,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Capture memcache traffic from network interface
+    /// Capture memcache traffic from network interface or PCAP file
     Record {
-        /// Network interface to capture from
-        interface: String,
+        /// Network interface (e.g., eth0, lo0) or PCAP file path to capture from
+        source: String,
         /// Output profile file path
         output: String,
         #[arg(short, long, default_value = "11211")]
@@ -69,8 +69,8 @@ async fn main() {
         .init();
 
     match cli.command {
-        Commands::Record { interface, output, port, salt } => {
-            if let Err(e) = run_record(&interface, port, &output, salt) {
+        Commands::Record { source, output, port, salt } => {
+            if let Err(e) = run_record(&source, port, &output, salt) {
                 eprintln!("Record error: {}", e);
                 std::process::exit(1);
             }
