@@ -32,6 +32,16 @@ else
     echo "⚠ Warning: tcpdump not found"
 fi
 
+# Verify memcached installation
+echo ""
+echo "Verifying memcached installation..."
+if command -v memcached &> /dev/null; then
+    memcached -h | head -3
+    echo "✓ memcached available"
+else
+    echo "⚠ Warning: memcached not found"
+fi
+
 # Verify Rust installation
 echo ""
 echo "Verifying Rust installation..."

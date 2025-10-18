@@ -29,7 +29,8 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         libelf-dev \
         libpcap-dev \
         clang \
-        llvm
+        llvm \
+        memcached
 
 ARG GIT_DELTA_VERSION=0.18.2
 RUN ARCH=$(dpkg --print-architecture) && \

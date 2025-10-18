@@ -44,6 +44,7 @@ podman run -it --rm \
 
 - Rust latest (slim base)
 - Git and Build essentials
+- **memcached**: For replay testing and benchmarks
 - **tcpdump**: Packet capture and PCAP generation
 - **eBPF tools**: llvm, clang, libelf-dev, libpcap-dev
 - **BPF support**: CAP_BPF, CAP_PERFMON for kernel packet capture
