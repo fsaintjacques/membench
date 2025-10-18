@@ -58,12 +58,11 @@ pub async fn run(input: &str, target: &str, loop_mode: &str, should_exit: Arc<At
 
     // Phase 3: Spawn reader task
     let reader_task_handle = {
-        let queues_clone = connection_queues.clone();
         let input_clone = input.to_string();
         let should_exit_clone = Arc::clone(&should_exit);
 
         tokio::spawn(async move {
-            reader_task(&input_clone, queues_clone, loop_mode, should_exit_clone).await
+            reader_task(&input_clone, connection_queues, loop_mode, should_exit_clone).await
         })
     };
 
