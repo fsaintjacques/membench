@@ -63,6 +63,11 @@ impl PacketCapture {
         Ok(packet.data)
     }
 
+    /// Check if source is finite (file) vs continuous (interface)
+    pub fn is_finite(&self) -> bool {
+        matches!(self.handle, CaptureHandle::Offline(_))
+    }
+
     /// Check if source is a file (returns true) or interface (returns false)
     pub fn is_file(source: &str) -> bool {
         Path::new(source).is_file()

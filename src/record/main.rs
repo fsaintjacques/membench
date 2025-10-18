@@ -124,7 +124,13 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
                 }
             }
             Err(_) => {
-                // Timeout or other error - just continue
+                // For PCAP files, EOF means we're done
+                // For live capture, this is a timeout - just continue
+                if capture.is_finite() {
+                    tracing::debug!("Reached end of PCAP file");
+                    break;
+                }
+                // Live capture timeout - continue waiting for packets
                 continue;
             }
         }
