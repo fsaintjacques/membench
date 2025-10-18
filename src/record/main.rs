@@ -17,7 +17,13 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
     });
 
     let mut capture = PacketCapture::from_source(source, port)?;
-    let source_type = if capture.is_finite() { "file" } else { "interface" };
+    let source_type = if source.starts_with("ebpf:") {
+        "ebpf"
+    } else if capture.is_finite() {
+        "file"
+    } else {
+        "interface"
+    };
     tracing::info!("Recording from {} ({}):{} to {}", source_type, source, port, output);
     tracing::debug!("Salt: {}", salt);
     tracing::info!("Capturing memcache traffic... Press Ctrl+C to stop.");
