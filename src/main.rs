@@ -21,24 +21,24 @@ struct Cli {
 enum Commands {
     /// Capture memcache traffic from network interface
     Record {
-        #[arg(short, long)]
+        /// Network interface to capture from
         interface: String,
+        /// Output profile file path
+        output: String,
         #[arg(short, long, default_value = "11211")]
         port: u16,
-        #[arg(short, long)]
-        output: String,
         #[arg(short, long)]
         salt: Option<u64>,
     },
     /// Analyze a captured profile file
     Analyze {
-        #[arg(short, long)]
-        input: String,
+        /// Profile file to analyze
+        file: String,
     },
     /// Replay traffic from profile against target server
     Replay {
-        #[arg(short, long)]
-        input: String,
+        /// Profile file to replay
+        file: String,
         #[arg(short, long, default_value = "localhost:11211")]
         target: String,
         #[arg(short, long, default_value = "1")]
@@ -68,19 +68,19 @@ async fn main() {
         .init();
 
     match cli.command {
-        Commands::Record { interface, port, output, salt } => {
+        Commands::Record { interface, output, port, salt } => {
             if let Err(e) = run_record(&interface, port, &output, salt) {
                 eprintln!("Record error: {}", e);
                 std::process::exit(1);
             }
         }
-        Commands::Analyze { input } => {
-            if let Err(e) = run_analyze(&input) {
+        Commands::Analyze { file } => {
+            if let Err(e) = run_analyze(&file) {
                 eprintln!("Analyze error: {}", e);
                 std::process::exit(1);
             }
         }
-        Commands::Replay { input, target, concurrency: _, loop_mode } => {
+        Commands::Replay { file, target, concurrency: _, loop_mode } => {
             let should_exit = Arc::new(AtomicBool::new(false));
             let should_exit_clone = Arc::clone(&should_exit);
 
@@ -91,7 +91,7 @@ async fn main() {
                 eprintln!("Failed to set signal handler: {}", e);
             });
 
-            if let Err(e) = run_replay(&input, &target, &loop_mode, should_exit).await {
+            if let Err(e) = run_replay(&file, &target, &loop_mode, should_exit).await {
                 eprintln!("Replay error: {}", e);
                 std::process::exit(1);
             }
