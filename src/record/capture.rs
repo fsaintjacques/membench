@@ -77,6 +77,44 @@ impl PacketSource for LiveCapture {
     }
 }
 
+/// PCAP file capture (offline)
+pub struct FileCapture {
+    handle: Capture<pcap::Offline>,
+    path: String,
+}
+
+impl FileCapture {
+    pub fn new(path: &str, port: u16) -> Result<Self> {
+        let mut cap = Capture::from_file(path)
+            .context(format!("failed to open pcap file: {}", path))?;
+
+        let filter = format!("tcp port {}", port);
+        cap.filter(&filter, true)
+            .context("failed to set filter")?;
+
+        Ok(FileCapture {
+            handle: cap,
+            path: path.to_string(),
+        })
+    }
+}
+
+impl PacketSource for FileCapture {
+    fn next_packet(&mut self) -> Result<&[u8]> {
+        self.handle.next_packet()
+            .context("failed to read packet")
+            .map(|pkt| pkt.data)
+    }
+
+    fn source_info(&self) -> &str {
+        &self.path
+    }
+
+    fn is_finite(&self) -> bool {
+        true  // File has end
+    }
+}
+
 enum CaptureHandle {
     Live(Capture<pcap::Active>),
     Offline(Capture<pcap::Offline>),
