@@ -16,18 +16,17 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
             .as_secs()
     });
 
-    let source_type = if PacketCapture::is_file(source) { "file" } else { "interface" };
+    let mut capture = PacketCapture::from_source(source, port)?;
+    let source_type = if capture.is_finite() { "file" } else { "interface" };
     tracing::info!("Recording from {} ({}):{} to {}", source_type, source, port, output);
     tracing::debug!("Salt: {}", salt);
     tracing::info!("Capturing memcache traffic... Press Ctrl+C to stop.");
 
-    if !PacketCapture::is_file(source) {
+    if !capture.is_finite() {
         tracing::debug!("Available devices: {:?}", PacketCapture::list_devices().unwrap_or_default());
     }
 
-    // Initialize components
-    let mut capture = PacketCapture::from_source(source, port)?;
-    tracing::debug!("Capture initialized from {}: {}", source_type, source);
+    tracing::debug!("Capture initialized from {}: {}", source_type, capture.source_info());
     let parser = MemcacheParser::new();
     let anonymizer = Anonymizer::new(salt);
     let mut writer = ProfileWriter::new(output)?;
