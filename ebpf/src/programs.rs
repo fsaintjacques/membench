@@ -1,16 +1,31 @@
 #![no_std]
 #![no_main]
 
-// Stub file - socket-level eBPF implementation coming in next commits
-//
-// This file previously contained TC (Traffic Control) ingress hooks for
-// packet-level capture. We're pivoting to socket-level capture using
-// sockops/sockmap for more efficient and protocol-aware capture.
+use aya_ebpf::{macros::*, maps::RingBuf, programs::SockOpsContext};
+use aya_log_ebpf::info;
 
-use core::panic::PanicInfo;
+// Maximum size for captured data per event
+const MAX_DATA_SIZE: usize = 4096;
 
-/// Panic handler required for no_std eBPF programs
+/// Event sent from kernel to userspace when socket recv occurs
+#[repr(C)]
+pub struct SocketDataEvent {
+    /// Socket identifier (file descriptor)
+    pub sock_id: u64,
+    /// Source port
+    pub sport: u16,
+    /// Destination port
+    pub dport: u16,
+    /// Length of data
+    pub data_len: u32,
+    /// Actual data payload (up to MAX_DATA_SIZE)
+    pub data: [u8; MAX_DATA_SIZE],
+}
+
+#[map]
+static EVENTS: RingBuf = RingBuf::with_byte_size(256 * 1024, 0);
+
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {}
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    unsafe { core::hint::unreachable_unchecked() }
 }
