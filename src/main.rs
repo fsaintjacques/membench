@@ -227,13 +227,8 @@ fn run_analyze(input: &str) -> anyhow::Result<()> {
     let analysis = DistributionAnalyzer::analyze(reader.events());
 
     println!("\n╔═══════════════════════════════════════════════════════╗");
-    println!("║            Profile Analysis Report                  ║");
+    println!("║            Profile Analysis Report                    ║");
     println!("╚═══════════════════════════════════════════════════════╝\n");
-
-    // File metadata
-    println!("Profile: {}", input);
-    println!("Version: {}\n", metadata.version);
-
     // Event statistics
     println!("─ Event Statistics ─");
     println!("Total events: {}", analysis.total_events);
