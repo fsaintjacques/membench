@@ -15,7 +15,6 @@
 #   --help              Show this help message
 #   --port PORT         Memcached port (default: 11211)
 #   --output FILE       Profile output file (default: /tmp/membench_demo.bin)
-#   --duration SECS     How long to run memtier_benchmark (default: 10)
 #   --clients N         Number of memtier clients (default: 4)
 #   --requests N        Requests per client (default: 1000)
 #   --keep-profile      Don't delete profile after replay
@@ -33,7 +32,6 @@ NC='\033[0m' # No Color
 # Default values
 MEMCACHED_PORT=11211
 PROFILE_OUTPUT="/tmp/membench_demo.bin"
-MEMTIER_DURATION=10
 MEMTIER_CLIENTS=4
 MEMTIER_REQUESTS=1000
 KEEP_PROFILE=false
@@ -72,10 +70,6 @@ parse_args() {
                 ;;
             --output)
                 PROFILE_OUTPUT="$2"
-                shift 2
-                ;;
-            --duration)
-                MEMTIER_DURATION="$2"
                 shift 2
                 ;;
             --clients)
@@ -208,7 +202,7 @@ start_membench_record() {
     # Start membench record in background
     # Note: This requires sudo for packet capture
     # For demo purposes, we'll attempt without sudo first
-    "${PROJECT_ROOT}/target/release/membench" record \
+    sudo "${PROJECT_ROOT}/target/release/membench" record \
         --interface "$interface" \
         --port "$MEMCACHED_PORT" \
         --output "$PROFILE_OUTPUT" \
@@ -224,7 +218,6 @@ generate_load() {
     log_info "Generating load with memtier_benchmark..."
     log_info "  Clients: $MEMTIER_CLIENTS"
     log_info "  Requests per client: $MEMTIER_REQUESTS"
-    log_info "  Duration: $MEMTIER_DURATION seconds"
 
     memtier_benchmark \
         --server 127.0.0.1 \
@@ -232,7 +225,7 @@ generate_load() {
         --protocol memcache_text \
         --clients "$MEMTIER_CLIENTS" \
         --requests "$MEMTIER_REQUESTS" \
-        --test-time "$MEMTIER_DURATION"
+        --quiet > /dev/null 2>&1
 
     log_success "Load generation complete"
 }
@@ -347,7 +340,7 @@ main() {
     log_info "Configuration:"
     log_info "  Memcached port: $MEMCACHED_PORT"
     log_info "  Profile output: $PROFILE_OUTPUT"
-    log_info "  memtier_benchmark: $MEMTIER_CLIENTS clients, $MEMTIER_REQUESTS requests, ${MEMTIER_DURATION}s duration"
+    log_info "  memtier_benchmark: $MEMTIER_CLIENTS clients, $MEMTIER_REQUESTS requests"
     echo ""
 
     # Check requirements
