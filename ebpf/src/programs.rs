@@ -5,7 +5,7 @@ use aya_ebpf::{
     macros::*,
     maps::RingBuf,
     programs::TracePointContext,
-    helpers::bpf_probe_read_kernel,
+    helpers::{bpf_probe_read_kernel, bpf_probe_read_user},
 };
 use aya_log_ebpf::info;
 
@@ -40,6 +40,13 @@ pub fn trace_recv_enter(ctx: TracePointContext) -> u32 {
     }
 }
 
+/// Read from userspace buffer safely
+unsafe fn bpf_probe_read_user_buf(src: *const u8, dst: &mut [u8]) -> Result<(), i64> {
+    let len = dst.len();
+    bpf_probe_read_user(dst.as_mut_ptr() as *mut _, len as u32, src as *const _)
+        .map_err(|e| e as i64)
+}
+
 /// Get destination port from socket fd
 /// Returns Ok(port) if this is a TCP socket, Err otherwise
 fn get_socket_port(fd: i32) -> Result<u16, i64> {
@@ -57,16 +64,39 @@ fn try_trace_recv(ctx: TracePointContext) -> Result<u32, i64> {
     let buf_ptr: u64 = unsafe { ctx.read_at(24)? };
     let buf_len: usize = unsafe { ctx.read_at(32)? };
 
-    // Check if this socket is on port 11211
     let port = get_socket_port(fd)?;
     if port != 11211 {
-        return Ok(0); // Not memcached traffic, skip
+        return Ok(0);
     }
 
-    info!(&ctx, "memcached recv: fd={} len={}", fd, buf_len);
+    // Limit data size to prevent exceeding stack limits
+    let copy_len = if buf_len > MAX_DATA_SIZE {
+        MAX_DATA_SIZE
+    } else {
+        buf_len
+    };
 
-    // TODO: Read data from buffer
-    // TODO: Send to ringbuf
+    // Reserve space in ringbuf
+    let mut event = EVENTS.reserve::<SocketDataEvent>(0).ok_or(-1i64)?;
+
+    // Populate event
+    event.sock_id = fd as u64;
+    event.sport = 0; // TODO: Extract from socket
+    event.dport = port;
+    event.data_len = copy_len as u32;
+
+    // Read data from userspace buffer
+    unsafe {
+        bpf_probe_read_user_buf(
+            buf_ptr as *const u8,
+            &mut event.data[..copy_len],
+        )?;
+    }
+
+    // Submit to ringbuf
+    event.submit(0);
+
+    info!(&ctx, "captured {} bytes from memcached socket", copy_len);
     Ok(0)
 }
 
