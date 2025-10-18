@@ -20,6 +20,26 @@ cargo build --release
 ./target/release/membench --help
 ```
 
+### Grant Packet Capture Permissions (Optional)
+
+To use `membench record` without `sudo`, grant the binary the necessary capabilities:
+
+```bash
+# Linux only - gives membench permission to capture packets
+sudo setcap cap_net_raw,cap_net_admin=eip ./target/release/membench
+
+# Verify it worked
+getcap ./target/release/membench
+# Output: ./target/release/membench = cap_net_admin,cap_net_raw+eip
+```
+
+**macOS**: Use `chmod +rw` on network interfaces instead:
+```bash
+sudo chmod +rw /dev/bpf*
+```
+
+After this, you can run `./scripts/demo.sh` without `sudo`.
+
 ## Quick Demo
 
 Run the complete workflow in one command:

@@ -23,6 +23,21 @@ brew install memcached memtier_benchmark  # macOS
 sudo apt-get install memcached memtier    # Ubuntu/Debian
 ```
 
+### Setup Packet Capture Permissions (Avoid sudo)
+
+**Linux**: Grant capabilities to the binary:
+```bash
+sudo setcap cap_net_raw,cap_net_admin=eip ./target/release/membench
+getcap ./target/release/membench  # Verify
+```
+
+**macOS**: Grant permission to network interfaces:
+```bash
+sudo chmod +rw /dev/bpf*
+```
+
+After this setup, you can run `./scripts/demo.sh` without `sudo`.
+
 ### Usage
 
 #### Basic Usage
