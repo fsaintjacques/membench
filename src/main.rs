@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 use membench::record::run_record;
 use membench::analyze::run_analyze;
 use membench::replay::run_replay;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(name = "membench")]
@@ -39,8 +41,11 @@ enum Commands {
         input: String,
         #[arg(short, long, default_value = "localhost:11211")]
         target: String,
-        #[arg(short, long, default_value = "4")]
+        #[arg(short, long, default_value = "1")]
         concurrency: usize,
+        /// Loop mode: once, infinite, or times:N
+        #[arg(short, long, default_value = "once")]
+        loop_mode: String,
     },
 }
 
@@ -75,8 +80,18 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        Commands::Replay { input, target, concurrency } => {
-            if let Err(e) = run_replay(&input, &target, concurrency).await {
+        Commands::Replay { input, target, concurrency: _, loop_mode } => {
+            let should_exit = Arc::new(AtomicBool::new(false));
+            let should_exit_clone = Arc::clone(&should_exit);
+
+            let _ctrlc_handle = ctrlc::set_handler(move || {
+                eprintln!("\nShutdown signal received, completing current iteration...");
+                should_exit_clone.store(true, Ordering::Release);
+            }).map_err(|e| {
+                eprintln!("Failed to set signal handler: {}", e);
+            });
+
+            if let Err(e) = run_replay(&input, &target, &loop_mode, should_exit).await {
                 eprintln!("Replay error: {}", e);
                 std::process::exit(1);
             }

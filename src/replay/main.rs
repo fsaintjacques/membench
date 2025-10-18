@@ -1,127 +1,117 @@
-//! Replay command implementation
+//! Replay command: stream profile events to memcache server with connection topology preservation
 
 use anyhow::Result;
-use std::time::{Instant, Duration};
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::sync::mpsc;
+use std::time::Instant;
 
-use crate::replay::{ProfileReader, DistributionAnalyzer, ReplayClient};
+use crate::replay::{
+    ProfileReader,
+    spawn_connection_task,
+    reader_task,
+    LoopMode,
+};
+use crate::profile::Event;
 
-pub async fn run(input: &str, target: &str, concurrency: usize) -> Result<()> {
+pub async fn run(input: &str, target: &str, loop_mode: &str, should_exit: Arc<AtomicBool>) -> Result<()> {
+    tracing::info!("Starting replay: input={}, target={}, mode={}", input, target, loop_mode);
+
+    // Parse loop mode
+    let loop_mode = match loop_mode {
+        "once" => LoopMode::Once,
+        "infinite" => LoopMode::Infinite,
+        s if s.starts_with("times:") => {
+            let count = s.strip_prefix("times:")
+                .and_then(|s| s.parse::<usize>().ok())
+                .ok_or_else(|| anyhow::anyhow!("Invalid loop mode: {}", s))?;
+            LoopMode::Times(count)
+        }
+        _ => LoopMode::Once,
+    };
+
+    // Phase 1: Read profile metadata and identify unique connections
     let reader = ProfileReader::new(input)?;
-    let events = reader.events().to_vec();
-    let analysis = DistributionAnalyzer::analyze(&events);
-
-    println!("\n╔════════════════════════════════════════════╗");
-    println!("║         Replay Statistics                  ║");
-    println!("╚════════════════════════════════════════════╝\n");
-    println!("Profile: {}", input);
-    println!("Target: {}", target);
-    println!("Concurrency: {}", concurrency);
-    println!("Total events in profile: {}", analysis.total_events);
-    println!("Command distribution:");
-    for (cmd, count) in &analysis.command_distribution {
-        println!("  {:?}: {}", cmd, count);
+    let mut unique_connections = HashSet::new();
+    for event in reader.events() {
+        unique_connections.insert(event.conn_id);
     }
-    println!("Cache hit rate: {:.2}%\n", analysis.hit_rate * 100.0);
-    println!("Starting replay... (Press Ctrl+C to stop)\n");
+    let unique_connections: Vec<u32> = unique_connections.into_iter().collect();
+    tracing::info!("Found {} unique connections", unique_connections.len());
 
-    // Create connection pool - reuse connections instead of creating new ones
-    let mut pool = Vec::with_capacity(concurrency);
-    for _ in 0..concurrency {
-        match ReplayClient::new(target, 65536) {
-            Ok(client) => pool.push(client),
-            Err(e) => {
-                tracing::warn!("Failed to create connection: {}", e);
-                return Err(e);
-            }
-        }
+    // Phase 2: Create SPSC queues for each connection
+    let mut connection_queues: HashMap<u32, mpsc::Sender<Event>> = HashMap::new();
+    let mut connection_tasks = Vec::new();
+    let sent_counter = Arc::new(AtomicU64::new(0));
+
+    for &conn_id in &unique_connections {
+        let (tx, rx) = mpsc::channel(1000); // Buffer size: 1000 events
+        connection_queues.insert(conn_id, tx);
+
+        let counter_clone = Arc::clone(&sent_counter);
+        let target = target.to_string();
+
+        let task_handle = spawn_connection_task(conn_id, &target, rx, counter_clone).await?;
+        connection_tasks.push(task_handle);
     }
 
-    let sent = Arc::new(AtomicU64::new(0));
-    let errors = Arc::new(AtomicU64::new(0));
-    let start_time = Instant::now();
+    // Phase 3: Spawn reader task
+    let reader_task_handle = {
+        let queues_clone = connection_queues.clone();
+        let input_clone = input.to_string();
+        let should_exit_clone = Arc::clone(&should_exit);
 
-    let sent_clone = Arc::clone(&sent);
-    let errors_clone = Arc::clone(&errors);
+        tokio::spawn(async move {
+            reader_task(&input_clone, queues_clone, loop_mode, should_exit_clone).await
+        })
+    };
 
-    // Spawn reporting task
-    let _reporting_handle = tokio::spawn(async move {
-        let mut last_report = Instant::now();
-        loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
+    // Phase 4: Spawn reporting task
+    let _reporting_handle = {
+        let counter_clone = Arc::clone(&sent_counter);
+        let should_exit_clone = Arc::clone(&should_exit);
 
-            if last_report.elapsed() >= Duration::from_secs(5) {
-                let elapsed = start_time.elapsed().as_secs_f64();
-                let sent_count = sent_clone.load(Ordering::Relaxed);
-                let error_count = errors_clone.load(Ordering::Relaxed);
-                let throughput = sent_count as f64 / elapsed;
-                let error_rate = if sent_count > 0 {
-                    (error_count as f64 / (sent_count + error_count) as f64) * 100.0
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+            let start = Instant::now();
+
+            loop {
+                interval.tick().await;
+
+                let sent = counter_clone.load(Ordering::Relaxed);
+                let elapsed = start.elapsed().as_secs_f64();
+                let throughput = if elapsed > 0.0 {
+                    sent as f64 / elapsed
                 } else {
                     0.0
                 };
 
-                println!(
-                    "[{:6}s] Sent: {:8} | Errors: {:6} | Throughput: {:8.0} ops/sec | Error rate: {:.2}%",
-                    elapsed as u64, sent_count, error_count, throughput, error_rate
+                tracing::info!(
+                    "[{:.0}s] Sent: {} | Throughput: {:.0} ops/sec",
+                    elapsed,
+                    sent,
+                    throughput
                 );
-                last_report = Instant::now();
-            }
-        }
-    });
 
-    // Main replay loop - replay actual events from profile
-    let mut event_index = 0;
-    let total_events = events.len();
-    let mut pool_index = 0;
-
-    loop {
-        for _ in 0..concurrency {
-            // Stop when we've replayed all events
-            if event_index >= total_events {
-                let elapsed = start_time.elapsed().as_secs_f64();
-                let sent_count = sent.load(Ordering::Relaxed);
-                let error_count = errors.load(Ordering::Relaxed);
-                let throughput = sent_count as f64 / elapsed;
-                let error_rate = if sent_count > 0 {
-                    (error_count as f64 / (sent_count + error_count) as f64) * 100.0
-                } else {
-                    0.0
-                };
-
-                println!(
-                    "\n[{:6}s] Sent: {:8} | Errors: {:6} | Throughput: {:8.0} ops/sec | Error rate: {:.2}%",
-                    elapsed as u64, sent_count, error_count, throughput, error_rate
-                );
-                println!("\n✓ Replay complete - all {} events sent\n", event_index);
-                _reporting_handle.abort();
-                return Ok(());
-            }
-
-            let event = &events[event_index];
-            let client = &mut pool[pool_index % concurrency];
-            pool_index += 1;
-            event_index += 1;
-
-            match client.send_command(event) {
-                Ok(_) => {
-                    // Read response to drain the socket buffer and prevent deadlock
-                    match client.read_response() {
-                        Ok(_) => {
-                            sent.fetch_add(1, Ordering::Relaxed);
-                        }
-                        Err(e) => {
-                            errors.fetch_add(1, Ordering::Relaxed);
-                            tracing::warn!("Read error: {}", e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    errors.fetch_add(1, Ordering::Relaxed);
-                    tracing::warn!("Send error: {}", e);
+                if should_exit_clone.load(Ordering::Relaxed) {
+                    break;
                 }
             }
-        }
+        })
+    };
+
+    // Phase 5: Wait for reader task to complete (signals that all events processed)
+    reader_task_handle.await??;
+
+    // Phase 6: Wait for all connection tasks to drain queues and finish
+    for task in connection_tasks {
+        task.await??;
     }
+
+    // Final stats
+    let final_sent = sent_counter.load(Ordering::Relaxed);
+    tracing::info!("Replay complete. Total sent: {}", final_sent);
+
+    Ok(())
 }
