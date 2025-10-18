@@ -72,7 +72,7 @@ membench replay \
   --concurrency 4
 ```
 
-Monitor the target memcached server during replay to observe performance metrics. Use `timeout` or Ctrl+C to stop the replay.
+Monitor the target memcached server during replay to observe performance metrics. Press Ctrl+C to stop the replay.
 
 ## Usage Guide
 
@@ -124,24 +124,22 @@ membench replay [OPTIONS] --input <INPUT> --target <TARGET>
 |--------|---------|-------------|
 | `--input` | *required* | Path to the profile binary file |
 | `--target` | `localhost:11211` | Target memcached address |
-| `--duration` | `60` | Replay duration in seconds |
 | `--concurrency` | `4` | Number of concurrent connections |
 
 #### Examples
 
 ```bash
-# Replay against localhost for default 60 seconds
+# Replay against localhost
 membench replay --input production.profile
 
 # High-concurrency test against production-like environment
 membench replay \
   --input production.profile \
   --target memcache-cluster:11211 \
-  --duration 300 \
   --concurrency 32
 
-# Short smoke test
-membench replay --input test.profile --duration 10 --concurrency 2
+# Smoke test with 2 connections
+membench replay --input test.profile --concurrency 2
 ```
 
 ### Profile Inspection
