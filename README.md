@@ -8,8 +8,8 @@ membench lets you capture memcache traffic patterns from production environments
 
 The tool works in two phases:
 
-- **Record**: Passively captures memcache traffic via libpcap, anonymizes keys using deterministic hashing, and stores only size distributions and command patterns in a compact binary profile
-- **Replay**: Reads a profile and generates semi-deterministic traffic matching the captured command, key size, and value size distributions against a target memcached server
+- **Record**: Passively captures memcache traffic via libpcap, anonymizes keys using deterministic hashing, and stores command patterns and size distributions in a compact binary profile
+- **Replay**: Reads a profile and replays the exact captured events with preserved connection topology, deterministic key/value generation, and configurable looping modes against a target memcached server
 
 ## Key Features
 
@@ -17,8 +17,10 @@ The tool works in two phases:
 - **Deterministic Hashing**: Keys are hashed with a configurable salt, allowing reproducible anonymization across runs
 - **Zero Production Impact**: Uses passive network capture (libpcap) with no instrumentation or modifications to memcached servers
 - **Compact Profiles**: Binary serialization keeps captured profiles small, even for large traffic volumes
-- **Realistic Replay**: Generates traffic matching captured distributions, maintaining realistic hit rates, command mixes, and key/value sizes
-- **Async I/O**: Replay engine uses async I/O for efficient concurrent traffic generation
+- **Exact Replay**: Replays the exact sequence of commands from capture, preserving connection topology and access patterns
+- **Deterministic Keys/Values**: Generates reproducible keys and values based on captured hashes and sizes
+- **Async I/O**: Replay engine uses Tokio async runtime with true concurrent connection handling (scales to hundreds of connections)
+- **Flexible Looping**: Run once, N times, or infinitely with graceful Ctrl+C shutdown
 
 ## Installation
 
@@ -42,11 +44,7 @@ cargo install --path .
 
 ```bash
 # Capture from eth0 on port 11211
-sudo membench record \
-  --interface eth0 \
-  --port 11211 \
-  --output production.profile \
-  --salt 12345
+sudo membench record eth0 production.profile --port 11211 --salt 12345
 ```
 
 This will run indefinitely, capturing all memcache traffic on eth0. Press Ctrl+C to stop.
@@ -57,7 +55,7 @@ The `--salt` parameter makes key anonymization reproducible. Omit it to use a ra
 
 ```bash
 # View profile statistics
-membench profile --input production.profile
+membench analyze production.profile
 ```
 
 Output shows command distribution, hit rate, key/value size ranges, and connection patterns.
@@ -65,11 +63,14 @@ Output shows command distribution, hit rate, key/value size ranges, and connecti
 ### 3. Replay Against a Test Environment
 
 ```bash
-# Replay with 4 concurrent connections (Ctrl+C to stop)
-membench replay \
-  --input production.profile \
-  --target test-memcached:11211 \
-  --concurrency 4
+# Replay once against a test server
+membench replay production.profile --target test-memcached:11211
+
+# Replay infinitely (Ctrl+C to stop)
+membench replay production.profile --target test-memcached:11211 --loop-mode infinite
+
+# Replay 3 times
+membench replay production.profile --target test-memcached:11211 --loop-mode times:3
 ```
 
 Monitor the target memcached server during replay to observe performance metrics. Press Ctrl+C to stop the replay.
@@ -81,65 +82,71 @@ Monitor the target memcached server during replay to observe performance metrics
 Captures memcache traffic from a live network interface.
 
 ```bash
-membench record [OPTIONS] --interface <INTERFACE> --output <OUTPUT>
+membench record [OPTIONS] <INTERFACE> <OUTPUT>
 ```
+
+#### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<INTERFACE>` | Network interface to capture from (e.g., `lo`, `eth0`, `en0`) |
+| `<OUTPUT>` | Path to write the profile binary file |
 
 #### Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--interface` | *required* | Network interface to capture from (e.g., `lo`, `eth0`, `en0`) |
 | `--port` | `11211` | Memcache port to filter on |
-| `--output` | *required* | Path to write the profile binary file |
 | `--salt` | *random* | Salt for deterministic key hashing (for reproducible anonymization) |
 
 #### Examples
 
 ```bash
 # Capture from localhost (requires sudo)
-sudo membench record --interface lo --port 11211 --output local.profile
+sudo membench record lo local.profile --port 11211
 
 # Capture from production network interface with fixed salt
-sudo membench record \
-  --interface eth0 \
-  --port 11211 \
-  --output production.profile \
-  --salt 0x1234567890abcdef
+sudo membench record eth0 production.profile --port 11211 --salt 0x1234567890abcdef
 
 # Capture non-standard memcache port
-sudo membench record --interface eth1 --port 11212 --output custom_port.profile
+sudo membench record eth1 custom_port.profile --port 11212
 ```
 
 ### Replay Mode
 
-Replays captured traffic patterns against a target memcached server.
+Replays captured traffic patterns against a target memcached server with support for different looping modes.
 
 ```bash
-membench replay [OPTIONS] --input <INPUT> --target <TARGET>
+membench replay [OPTIONS] <FILE>
 ```
+
+#### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<FILE>` | Path to the profile binary file |
 
 #### Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--input` | *required* | Path to the profile binary file |
 | `--target` | `localhost:11211` | Target memcached address |
-| `--concurrency` | `4` | Number of concurrent connections |
+| `--loop-mode` | `once` | Loop mode: `once`, `infinite`, or `times:N` (e.g., `times:3`) |
 
 #### Examples
 
 ```bash
-# Replay against localhost
-membench replay --input production.profile
+# Replay once against localhost
+membench replay production.profile
 
-# High-concurrency test against production-like environment
-membench replay \
-  --input production.profile \
-  --target memcache-cluster:11211 \
-  --concurrency 32
+# Replay infinitely against production-like environment (Ctrl+C to stop)
+membench replay production.profile --target memcache-cluster:11211 --loop-mode infinite
 
-# Smoke test with 2 connections
-membench replay --input test.profile --concurrency 2
+# Replay 10 times
+membench replay production.profile --loop-mode times:10
+
+# Smoke test with specific target
+membench replay test.profile --target 192.168.1.10:11211
 ```
 
 ### Profile Inspection
@@ -147,7 +154,7 @@ membench replay --input test.profile --concurrency 2
 View statistics and metadata from a profile without replaying.
 
 ```bash
-membench profile --input <PROFILE>
+membench analyze <FILE>
 ```
 
 Shows:
@@ -195,11 +202,14 @@ The format is compact and self-describing, allowing profiles to be exchanged bet
 
 ### Replaying
 
-1. Profile file is read and deserialized
-2. Event distributions are analyzed (command mix, key sizes, value sizes, hit rate)
-3. Traffic generator samples from distributions to create realistic command sequences
-4. Commands are sent asynchronously to the target memcached server using the specified concurrency level
-5. Statistics are collected and reported
+1. Profile file is streamed and deserialized event-by-event
+2. A reader task coordinates event distribution to per-connection async tasks
+3. Connection tasks are spawned based on unique connection IDs from the capture
+4. Events are replayed in their original order, preserving connection topology
+5. Keys and values are deterministically generated from captured hashes and sizes
+6. Commands are sent asynchronously to the target memcached server
+7. Statistics are collected and reported
+8. Looping repeats the profile based on configured mode (once, N times, or infinite)
 
 ## Privacy Guarantees
 
@@ -214,16 +224,18 @@ Even with access to a profile file, it's computationally infeasible to recover o
 
 - **Capture Overhead**: Minimal—uses passive network capture with no packet modification
 - **Profile Size**: Typically 100-500 bytes per event (varies with metadata overhead)
-- **Replay Throughput**: 5,000-50,000 commands/sec depending on target memcached and concurrency level
-- **Memory Usage**: Profiles are fully loaded into memory; a 1GB profile contains ~2-10 million events
+- **Replay Throughput**: 50,000-500,000+ commands/sec depending on target memcached, network, and concurrency level
+- **Memory Usage**: Profiles are streamed (not fully loaded); memory usage stays constant regardless of profile size
+- **Async Concurrency**: Scales to hundreds of concurrent connections using Tokio async tasks
 
 ## Limitations & Future Work
 
 - Currently supports binary memcache protocol only (not ASCII protocol)
 - Pipelining and multi-get/multi-set commands are recorded as individual events
-- Replay does not match inter-command timing from the capture (purely request rate based)
+- Replay does not match inter-command timing from the capture (commands sent as fast as server accepts)
 - No support for SASL authentication or TLS
-- Connection pooling follows a simple round-robin pattern during replay
+- Packet capture on loopback interface has limited support (works best on real network interfaces)
+- Future: eBPF-based capture for improved real network support without libpcap
 
 ## Contributing
 

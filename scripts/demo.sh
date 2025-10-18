@@ -206,9 +206,9 @@ start_membench_record() {
     # 2. Grant capabilities to the binary (Linux): sudo setcap cap_net_raw,cap_net_admin=eip ./target/release/membench
     # 3. Modify macOS permissions: sudo chmod +rw /dev/bpf*
     "${PROJECT_ROOT}/target/release/membench" record \
-        --interface "$interface" \
+        "$interface" \
+        "$PROFILE_OUTPUT" \
         --port "$MEMCACHED_PORT" \
-        --output "$PROFILE_OUTPUT" \
         &
     MEMBENCH_RECORD_PID=$!
 
@@ -289,8 +289,7 @@ analyze_profile() {
     log_info "Analyzing profile..."
     echo ""
 
-    "${PROJECT_ROOT}/target/release/membench" analyze \
-        --input "$PROFILE_OUTPUT"
+    "${PROJECT_ROOT}/target/release/membench" analyze "$PROFILE_OUTPUT"
 
     log_success "Analysis complete"
 }
@@ -309,9 +308,8 @@ replay_profile() {
 
     # Run replay (press Ctrl+C to stop)
     timeout 30 "${PROJECT_ROOT}/target/release/membench" replay \
-        --input "$PROFILE_OUTPUT" \
+        "$PROFILE_OUTPUT" \
         --target "127.0.0.1:$MEMCACHED_PORT" \
-        --concurrency 4 \
         || true  # timeout returns non-zero
 
     echo ""
