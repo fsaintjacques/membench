@@ -135,6 +135,31 @@ async fn read_events(mut ringbuf: AyaRingBuf<aya::maps::MapData>, tx: mpsc::Unbo
     }
 }
 
+impl PacketSource for EbpfCapture {
+    fn next_packet(&mut self) -> Result<&[u8]> {
+        // Try to receive packet from channel (blocking)
+        match self.rx.blocking_recv() {
+            Some(packet) => {
+                self.current_packet = Some(packet);
+                Ok(self.current_packet.as_ref().unwrap())
+            }
+            None => Err(anyhow::anyhow!("eBPF capture channel closed")),
+        }
+    }
+
+    fn source_info(&self) -> &str {
+        &self.interface
+    }
+
+    fn is_finite(&self) -> bool {
+        false // Socket capture is continuous
+    }
+
+    fn stats(&mut self) -> Option<CaptureStats> {
+        None // TODO: Implement stats tracking
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn check_ebpf_capabilities() -> Result<()> {
     Ok(())
