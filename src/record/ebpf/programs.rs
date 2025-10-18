@@ -1,24 +1,21 @@
-//! eBPF program and userspace integration
+//! eBPF socket-level capture via tracepoints
 
 use crate::record::capture::CaptureStats;
 use crate::record::capture::PacketSource;
 use anyhow::Result;
 use aya::Ebpf;
 
-/// Check if running with required eBPF capabilities
-#[cfg(target_os = "linux")]
-fn check_ebpf_capabilities() -> Result<()> {
-    // TODO: Actually check CAP_BPF and CAP_PERFMON
-    // For now, just return Ok - actual check happens at attach time
-    Ok(())
+/// Event structure matching kernel-side definition
+#[repr(C)]
+struct SocketDataEvent {
+    sock_id: u64,
+    sport: u16,
+    dport: u16,
+    data_len: u32,
+    data: [u8; 4096],
 }
 
-#[cfg(not(target_os = "linux"))]
-fn check_ebpf_capabilities() -> Result<()> {
-    Err(anyhow::anyhow!("eBPF not supported on this platform"))
-}
-
-/// eBPF packet capture using TC ingress hook
+/// eBPF socket capture using tracepoints
 pub struct EbpfCapture {
     interface: String,
     port: u16,
