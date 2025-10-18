@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 /// Spawns a single connection task that processes commands from a queue
 pub async fn spawn_connection_task(
-    _connection_id: u32,
+    _connection_id: u16,
     target: &str,
     rx: mpsc::Receiver<Event>,
     sent_counter: Arc<AtomicU64>,

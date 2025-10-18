@@ -36,7 +36,7 @@ impl ReplayClient {
                 format!("mg {} v\r\n", key)
             }
             CommandType::Set => {
-                let size = event.value_size.unwrap_or(0);
+                let size = event.value_size.map(|nz| nz.get()).unwrap_or(0);
                 let value = self.generate_value(size);
                 format!("ms {} {}\r\n{}\r\n", key, size, value)
             }

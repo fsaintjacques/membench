@@ -21,7 +21,7 @@ mod tests {
                 cmd_type: CommandType::Set,
                 key_hash: 0x2,
                 key_size: 20,
-                value_size: Some(50),
+                value_size: std::num::NonZero::new(50),
                 flags: Flags::empty(),
             },
         ];
@@ -81,7 +81,7 @@ mod tests {
                 cmd_type: CommandType::Set,
                 key_hash: 0x2,
                 key_size: 20,
-                value_size: Some(50),
+                value_size: std::num::NonZero::new(50),
                 flags: Flags::empty(),
             },
         ];

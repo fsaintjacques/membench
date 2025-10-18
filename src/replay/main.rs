@@ -33,15 +33,15 @@ pub async fn run(input: &str, target: &str, loop_mode: &str, should_exit: Arc<At
 
     // Phase 1: Read profile metadata and identify unique connections
     let reader = ProfileReader::new(input)?;
-    let mut unique_connections = HashSet::new();
+    let mut unique_connections = HashSet::<u16>::new();
     for event in reader.events() {
         unique_connections.insert(event.conn_id);
     }
-    let unique_connections: Vec<u32> = unique_connections.into_iter().collect();
+    let unique_connections: Vec<u16> = unique_connections.into_iter().collect();
     tracing::info!("Found {} unique connections", unique_connections.len());
 
     // Phase 2: Create SPSC queues for each connection
-    let mut connection_queues: HashMap<u32, mpsc::Sender<Event>> = HashMap::new();
+    let mut connection_queues: HashMap<u16, mpsc::Sender<Event>> = HashMap::new();
     let mut connection_tasks = Vec::new();
     let sent_counter = Arc::new(AtomicU64::new(0));
 

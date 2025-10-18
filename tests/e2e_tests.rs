@@ -30,7 +30,7 @@ mod tests {
                 key_hash: (i as u64).wrapping_mul(0x123456789),
                 key_size: 10 + (i % 20) as u32,
                 value_size: if i % 5 == 0 {
-                    Some(100 + (i % 200) as u32)
+                    std::num::NonZero::new(100 + (i % 200) as u32)
                 } else {
                     None
                 },
@@ -116,7 +116,7 @@ mod tests {
                 cmd_type: CommandType::Set,
                 key_hash: 0xcafebabe,
                 key_size: 16,
-                value_size: Some(256),
+                value_size: std::num::NonZero::new(256),
                 flags: Flags::empty(),
             },
         ];
@@ -159,7 +159,7 @@ mod tests {
         for i in 0..event_count {
             let event = Event {
                 timestamp: (i as u64).wrapping_mul(1234567),
-                conn_id: (i % 32) as u32,
+                conn_id: (i % 32) as u16,
                 cmd_type: match i % 6 {
                     0 => CommandType::Get,
                     1 => CommandType::Set,
@@ -169,7 +169,7 @@ mod tests {
                 key_hash: (i as u64).wrapping_mul(987654321),
                 key_size: (i % 256) as u32,
                 value_size: if i % 2 == 0 {
-                    Some((i as u32).wrapping_mul(256))
+                    std::num::NonZero::new((i as u32).wrapping_mul(256))
                 } else {
                     None
                 },

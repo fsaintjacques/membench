@@ -90,11 +90,11 @@ pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Resul
                                         .duration_since(SystemTime::UNIX_EPOCH)
                                         .unwrap()
                                         .as_micros() as u64,
-                                    conn_id: (packet_count % 32) as u32, // Simplified connection ID
+                                    conn_id: (packet_count % 32) as u16, // Simplified connection ID
                                     cmd_type: cmd.cmd_type,
                                     key_hash: anonymizer.hash_key(key_bytes), // Hash the actual key
                                     key_size,
-                                    value_size: cmd.value_size,
+                                    value_size: cmd.value_size.and_then(std::num::NonZero::new),
                                     flags: cmd.flags,
                                 };
 

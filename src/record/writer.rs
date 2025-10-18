@@ -10,7 +10,7 @@ pub struct ProfileWriter {
     events_written: u64,
     first_timestamp: Option<u64>,
     last_timestamp: Option<u64>,
-    connections: HashSet<u32>,
+    connections: HashSet<u16>,
 }
 
 impl ProfileWriter {

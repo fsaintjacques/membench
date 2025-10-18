@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::num::NonZero;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum CommandType {
@@ -11,7 +12,7 @@ pub enum CommandType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct Flags {
-    bits: u32,
+    bits: u8,
 }
 
 impl Flags {
@@ -40,13 +41,18 @@ impl Flags {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
+    // Temporal
     pub timestamp: u64,
-    pub conn_id: u32,
+    // Connection identity
+    pub conn_id: u16,
+    // Command metadata
     pub cmd_type: CommandType,
+    pub flags: Flags,
+    // Key info
     pub key_hash: u64,
     pub key_size: u32,
-    pub value_size: Option<u32>,
-    pub flags: Flags,
+    // Value info
+    pub value_size: Option<NonZero<u32>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,7 +69,7 @@ impl ProfileMetadata {
     pub fn new() -> Self {
         ProfileMetadata {
             magic: 0xDEADBEEF,
-            version: 1,
+            version: 2, // Changed: packed layout with Option<NonZero<u32>>, u16 conn_id, u8 flags
             total_events: 0,
             time_range: (0, 0),
             unique_connections: 0,

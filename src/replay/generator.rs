@@ -19,14 +19,14 @@ impl TrafficGenerator {
         let cmd_type = self.sample_command();
         let key_size = self.sample_key_size();
         let value_size = if cmd_type == CommandType::Set {
-            Some(self.sample_value_size())
+            std::num::NonZero::new(self.sample_value_size())
         } else {
             None
         };
 
         Event {
             timestamp: self.rng.gen::<u64>(),
-            conn_id: self.rng.gen::<u32>() % 4, // Limit to 4 connections
+            conn_id: self.rng.gen::<u16>() % 4, // Limit to 4 connections
             cmd_type,
             key_hash: self.rng.gen::<u64>(),
             key_size,

@@ -12,7 +12,7 @@ pub enum LoopMode {
 /// Main reader task: streams events from profile, routes to connection queues, handles looping
 pub async fn reader_task(
     profile_path: &str,
-    connection_queues: HashMap<u32, mpsc::Sender<Event>>,
+    connection_queues: HashMap<u16, mpsc::Sender<Event>>,
     loop_mode: LoopMode,
     should_exit: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<()> {

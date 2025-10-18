@@ -22,7 +22,7 @@ impl DistributionAnalyzer {
             *key_size_dist.entry(event.key_size).or_insert(0) += 1;
 
             if let Some(size) = event.value_size {
-                *value_size_dist.entry(size).or_insert(0) += 1;
+                *value_size_dist.entry(size.get()).or_insert(0) += 1;
             }
         }
 
