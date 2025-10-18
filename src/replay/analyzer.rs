@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::profile::{Event, CommandType, Response};
 
+#[derive(Clone)]
 pub struct AnalysisResult {
     pub total_events: u64,
     pub command_distribution: HashMap<CommandType, u64>,

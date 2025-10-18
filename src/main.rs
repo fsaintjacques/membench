@@ -32,7 +32,8 @@ enum Commands {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt::init();
     let cli = Cli::parse();
     match cli.command {
@@ -42,8 +43,11 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Commands::Replay { .. } => {
-            println!("Replay mode not yet implemented");
+        Commands::Replay { input, target, concurrency } => {
+            if let Err(e) = run_replay(&input, &target, concurrency).await {
+                eprintln!("Replay error: {}", e);
+                std::process::exit(1);
+            }
         }
     }
 }
@@ -66,4 +70,49 @@ fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> an
     // Anonymizer, and ProfileWriter
 
     Ok(())
+}
+
+async fn run_replay(input: &str, target: &str, concurrency: usize) -> anyhow::Result<()> {
+    use membench::replay::{ProfileReader, DistributionAnalyzer, TrafficGenerator, ReplayClient};
+
+    let reader = ProfileReader::new(input)?;
+    let analysis = DistributionAnalyzer::analyze(reader.events());
+
+    println!("Profile loaded: {} events, hit rate: {:.2}%",
+             analysis.total_events, analysis.hit_rate * 100.0);
+    println!("Replaying to {} with {} concurrent connections. Press Ctrl+C to stop.",
+             target, concurrency);
+
+    let mut sent = 0u64;
+    let mut errors = 0u64;
+
+    loop {
+        for _ in 0..concurrency {
+            let mut gen = TrafficGenerator::new(analysis.clone());
+            let event = gen.next_command();
+
+            match ReplayClient::new(target, 65536) {
+                Ok(mut client) => {
+                    match client.send_command(&event) {
+                        Ok(_) => {
+                            sent += 1;
+                            if sent % 1000 == 0 {
+                                println!("Sent {} commands ({} errors)", sent, errors);
+                            }
+                        }
+                        Err(e) => {
+                            errors += 1;
+                            tracing::warn!("Send error: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    errors += 1;
+                    tracing::warn!("Connection error: {}", e);
+                }
+            }
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
 }
