@@ -280,7 +280,6 @@ mod system_tests {
             return;
         }
 
-        use membench::replay::{ProfileReader, DistributionAnalyzer, TrafficGenerator};
         use tempfile::TempDir;
 
         let temp_dir = match TempDir::new() {

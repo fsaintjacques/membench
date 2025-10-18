@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use crate::record::{PacketCapture, StreamReassembler, MemcacheParser, Anonymizer, ProfileWriter};
+use crate::record::{PacketCapture, MemcacheParser, Anonymizer, ProfileWriter};
 use crate::profile::Event;
 
 pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Result<()> {
@@ -24,7 +24,6 @@ pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Resul
     // Initialize components
     let mut capture = PacketCapture::new(interface, port)?;
     tracing::debug!("Capture initialized on interface: {}", interface);
-    let _reassembler = StreamReassembler::new();
     let parser = MemcacheParser::new();
     let anonymizer = Anonymizer::new(salt);
     let mut writer = ProfileWriter::new(output)?;
@@ -90,7 +89,7 @@ pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Resul
                                         .duration_since(SystemTime::UNIX_EPOCH)
                                         .unwrap()
                                         .as_micros() as u64,
-                                    conn_id: (packet_count % 32) as u16, // Simplified connection ID
+                                    conn_id: (packet_count % 32) as u16, // Connection ID derived from packet count
                                     cmd_type: cmd.cmd_type,
                                     key_hash: anonymizer.hash_key(key_bytes), // Hash the actual key
                                     key_size,

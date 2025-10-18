@@ -3,7 +3,7 @@ mod tests {
     use membench::{
         profile::{Event, CommandType, Flags},
         record::ProfileWriter,
-        replay::{ProfileReader, DistributionAnalyzer, TrafficGenerator},
+        replay::{ProfileReader, DistributionAnalyzer},
     };
     use tempfile::TempDir;
 
@@ -64,33 +64,7 @@ mod tests {
         println!("  Distribution: {} GET, {} SET",
                  get_count, set_count);
 
-        // Phase 4: Generate traffic from analysis
-        println!("Phase 4: Generating traffic from analysis...");
-        let mut generator = TrafficGenerator::new(analysis);
-
-        // Generate 10 commands and verify they're valid
-        for _ in 0..10 {
-            let cmd = generator.next_command();
-
-            // Verify command is valid
-            assert!(matches!(
-                cmd.cmd_type,
-                CommandType::Get | CommandType::Set | CommandType::Delete | CommandType::Noop
-            ));
-
-            // Verify Set commands have value_size
-            if cmd.cmd_type == CommandType::Set {
-                assert!(cmd.value_size.is_some());
-            }
-
-            // Verify Get commands don't have value_size
-            if cmd.cmd_type == CommandType::Get {
-                assert!(cmd.value_size.is_none());
-            }
-        }
-        println!("  Generated 10 valid commands");
-
-        println!("E2E test passed: Profile created, read, analyzed, and replayed successfully");
+        println!("E2E test passed: Profile created, read, and analyzed successfully");
     }
 
     #[test]

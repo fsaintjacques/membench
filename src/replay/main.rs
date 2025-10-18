@@ -53,7 +53,7 @@ pub async fn run(input: &str, target: &str, loop_mode: &str, protocol_mode: Prot
         let counter_clone = Arc::clone(&sent_counter);
         let target = target.to_string();
 
-        let task_handle = spawn_connection_task(conn_id, &target, rx, counter_clone, protocol_mode).await?;
+        let task_handle = spawn_connection_task(&target, rx, counter_clone, protocol_mode).await?;
         connection_tasks.push(task_handle);
     }
 

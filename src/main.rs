@@ -41,8 +41,6 @@ enum Commands {
         file: String,
         #[arg(short, long, default_value = "localhost:11211")]
         target: String,
-        #[arg(short, long, default_value = "1")]
-        concurrency: usize,
         /// Loop mode: once, infinite, or times:N
         #[arg(short, long, default_value = "once")]
         loop_mode: String,
@@ -83,7 +81,7 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        Commands::Replay { file, target, concurrency: _, loop_mode, protocol_mode } => {
+        Commands::Replay { file, target, loop_mode, protocol_mode } => {
             // Parse protocol mode at CLI boundary
             let protocol_mode = match ProtocolMode::from_str(&protocol_mode) {
                 Ok(mode) => mode,
