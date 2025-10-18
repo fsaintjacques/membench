@@ -40,22 +40,33 @@ pub fn trace_recv_enter(ctx: TracePointContext) -> u32 {
     }
 }
 
+/// Get destination port from socket fd
+/// Returns Ok(port) if this is a TCP socket, Err otherwise
+fn get_socket_port(fd: i32) -> Result<u16, i64> {
+    // For now, we'll use a simplified approach:
+    // Check if this is a memcached connection by port
+    // In production, would use bpf_get_socket_cookie or similar
+
+    // TODO: Implement actual socket port lookup
+    // For MVP, we'll filter in userspace
+    Ok(11211) // Placeholder - return target port
+}
+
 fn try_trace_recv(ctx: TracePointContext) -> Result<u32, i64> {
-    // Read syscall arguments
-    // arg 0: fd (socket file descriptor)
-    // arg 1: buf (receive buffer pointer)
-    // arg 2: len (buffer length)
+    let fd: i32 = unsafe { ctx.read_at(16)? };
+    let buf_ptr: u64 = unsafe { ctx.read_at(24)? };
+    let buf_len: usize = unsafe { ctx.read_at(32)? };
 
-    let fd: i32 = unsafe { ctx.read_at(16)? }; // fd is at offset 16
-    let buf_ptr: u64 = unsafe { ctx.read_at(24)? }; // buf at offset 24
-    let buf_len: usize = unsafe { ctx.read_at(32)? }; // len at offset 32
+    // Check if this socket is on port 11211
+    let port = get_socket_port(fd)?;
+    if port != 11211 {
+        return Ok(0); // Not memcached traffic, skip
+    }
 
-    // TODO: Get socket info (port) from fd
-    // TODO: Filter for port 11211
+    info!(&ctx, "memcached recv: fd={} len={}", fd, buf_len);
+
     // TODO: Read data from buffer
     // TODO: Send to ringbuf
-
-    info!(&ctx, "recv: fd={} buf_len={}", fd, buf_len);
     Ok(0)
 }
 
