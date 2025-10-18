@@ -29,21 +29,55 @@ impl ReplayClient {
     }
 
     fn build_command_string(&self, event: &Event) -> String {
+        let key = self.generate_key(event.key_hash, event.key_size);
+
         match event.cmd_type {
             CommandType::Get => {
-                format!("mg {} v\r\n", "key")
+                format!("mg {} v\r\n", key)
             }
             CommandType::Set => {
                 let size = event.value_size.unwrap_or(0);
-                format!("ms {} {}\r\n{}\r\n", "key", size, "value")
+                let value = self.generate_value(size);
+                format!("ms {} {}\r\n{}\r\n", key, size, value)
             }
             CommandType::Delete => {
-                format!("md {}\r\n", "key")
+                format!("md {}\r\n", key)
             }
             CommandType::Noop => {
                 "mn\r\n".to_string()
             }
         }
+    }
+
+    /// Generate a deterministic key from hash and size
+    /// Same hash+size always produces the same key
+    fn generate_key(&self, key_hash: u64, key_size: u32) -> String {
+        if key_size == 0 {
+            return String::new();
+        }
+
+        // Convert hash to hex representation
+        let hash_hex = format!("{:016x}", key_hash);
+
+        // Repeat and truncate to match key_size
+        let key = (hash_hex.repeat(((key_size as usize + hash_hex.len() - 1) / hash_hex.len()) + 1))
+            .chars()
+            .take(key_size as usize)
+            .collect::<String>();
+
+        key
+    }
+
+    /// Generate a value payload of specified size
+    /// Uses a repeating pattern to fill the size
+    fn generate_value(&self, size: u32) -> String {
+        if size == 0 {
+            return String::new();
+        }
+
+        // Generate payload matching size
+        let pattern = "x";
+        pattern.repeat(size as usize)
     }
 }
 
