@@ -115,49 +115,31 @@ impl PacketSource for FileCapture {
     }
 }
 
-enum CaptureHandle {
-    Live(Capture<pcap::Active>),
-    Offline(Capture<pcap::Offline>),
-}
-
 pub struct PacketCapture {
-    handle: CaptureHandle,
+    source: Box<dyn PacketSource>,
 }
 
 impl PacketCapture {
+    /// Check if source is a file (returns true) or interface (returns false)
+    pub fn is_file(source: &str) -> bool {
+        Path::new(source).is_file()
+    }
+
     /// Create a packet capture from a source (interface or PCAP file)
     /// Auto-detects the type by checking if source is a file
     pub fn from_source(source: &str, port: u16) -> Result<Self> {
-        let handle = if Path::new(source).is_file() {
-            // Open as PCAP file
-            let mut cap = Capture::from_file(source)
-                .context(format!("failed to open pcap file: {}", source))?;
-
-            let filter = format!("tcp port {}", port);
-            cap.filter(&filter, true)
-                .context("failed to set filter")?;
-
-            CaptureHandle::Offline(cap)
+        let packet_source: Box<dyn PacketSource> = if Self::is_file(source) {
+            Box::new(FileCapture::new(source, port)?)
         } else {
-            // Open as live interface
-            let mut cap = Capture::from_device(source)
-                .context(format!("failed to open device: {}", source))?
-                .promisc(true)
-                .snaplen(65535)
-                .open()
-                .context("failed to open capture")?;
-
-            let filter = format!("tcp port {}", port);
-            cap.filter(&filter, true)
-                .context("failed to set filter")?;
-
-            CaptureHandle::Live(cap)
+            Box::new(LiveCapture::new(source, port)?)
         };
 
-        Ok(PacketCapture { handle })
+        Ok(PacketCapture {
+            source: packet_source,
+        })
     }
 
-    /// Legacy interface for backwards compatibility
+    /// Legacy method for backwards compatibility
     pub fn new(interface: &str, port: u16) -> Result<Self> {
         Self::from_source(interface, port)
     }
@@ -169,20 +151,18 @@ impl PacketCapture {
     }
 
     pub fn next_packet(&mut self) -> Result<&[u8]> {
-        let packet = match &mut self.handle {
-            CaptureHandle::Live(cap) => cap.next_packet(),
-            CaptureHandle::Offline(cap) => cap.next_packet(),
-        }.context("failed to read packet")?;
-        Ok(packet.data)
+        self.source.next_packet()
     }
 
-    /// Check if source is finite (file) vs continuous (interface)
+    pub fn source_info(&self) -> &str {
+        self.source.source_info()
+    }
+
     pub fn is_finite(&self) -> bool {
-        matches!(self.handle, CaptureHandle::Offline(_))
+        self.source.is_finite()
     }
 
-    /// Check if source is a file (returns true) or interface (returns false)
-    pub fn is_file(source: &str) -> bool {
-        Path::new(source).is_file()
+    pub fn stats(&mut self) -> Option<CaptureStats> {
+        self.source.stats()
     }
 }
