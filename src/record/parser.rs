@@ -1,16 +1,11 @@
 use anyhow::{anyhow, Result};
-use crate::profile::{CommandType, Response, Flags};
+use crate::profile::{CommandType, Flags};
 
 pub struct ParsedCommand {
     pub cmd_type: CommandType,
     pub key_range: std::ops::Range<usize>,
     pub value_size: Option<u32>,
     pub flags: Flags,
-}
-
-pub struct ParsedResponse {
-    pub resp: Response,
-    pub consumed: usize,
 }
 
 pub struct MemcacheParser;
@@ -65,31 +60,4 @@ impl MemcacheParser {
         }, rest))
     }
 
-    pub fn parse_response(&self, input: &[u8]) -> Result<ParsedResponse> {
-        let line_end = input.iter().position(|&b| b == b'\n')
-            .ok_or(anyhow!("no newline"))?;
-        let line = &input[..line_end - 1];
-
-        let parts: Vec<&[u8]> = line.split(|&b| b == b' ').collect();
-        if parts.is_empty() {
-            return Err(anyhow!("empty response"));
-        }
-
-        let resp_type = std::str::from_utf8(parts[0])?;
-        let response = match resp_type {
-            "VA" => {
-                let size: u32 = std::str::from_utf8(parts[1])?.parse()?;
-                Response::Found(size)
-            }
-            "EN" => Response::NotFound,
-            "EX" => Response::Error,
-            "HD" => Response::Found(0),
-            _ => return Err(anyhow!("unknown response: {}", resp_type)),
-        };
-
-        Ok(ParsedResponse {
-            resp: response,
-            consumed: line_end + 1,
-        })
-    }
 }

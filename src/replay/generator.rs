@@ -1,4 +1,4 @@
-use crate::profile::{CommandType, Event, Flags, Response};
+use crate::profile::{CommandType, Event, Flags};
 use rand::Rng;
 use super::analyzer::AnalysisResult;
 
@@ -24,13 +24,6 @@ impl TrafficGenerator {
             None
         };
 
-        // Determine response based on hit rate
-        let response = if self.rng.gen::<f64>() < self.analysis.hit_rate {
-            Response::Found(value_size.unwrap_or(0))
-        } else {
-            Response::NotFound
-        };
-
         Event {
             timestamp: self.rng.gen::<u64>(),
             conn_id: self.rng.gen::<u32>() % 4, // Limit to 4 connections
@@ -39,7 +32,6 @@ impl TrafficGenerator {
             key_size,
             value_size,
             flags: Flags::empty(),
-            response,
         }
     }
 

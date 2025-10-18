@@ -2,7 +2,7 @@
 mod tests {
     use membench::replay::ProfileReader;
     use membench::record::ProfileWriter;
-    use membench::profile::{Event, Response, CommandType, Flags};
+    use membench::profile::{Event, CommandType, Flags};
     use tempfile::TempDir;
 
     #[test]
@@ -21,7 +21,6 @@ mod tests {
             key_size: 10,
             value_size: None,
             flags: Flags::empty(),
-            response: Response::Found(100),
         };
         writer.write_event(&event).unwrap();
         writer.finish().unwrap();

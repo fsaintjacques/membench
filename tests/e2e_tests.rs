@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use membench::{
-        profile::{Event, Response, CommandType, Flags},
+        profile::{Event, CommandType, Flags},
         record::ProfileWriter,
         replay::{ProfileReader, DistributionAnalyzer, TrafficGenerator},
     };
@@ -35,11 +35,6 @@ mod tests {
                     None
                 },
                 flags: Flags::empty(),
-                response: if i % 10 == 0 {
-                    Response::NotFound
-                } else {
-                    Response::Found((i * 10) as u32)
-                },
             };
             writer.write_event(&event).unwrap();
         }
@@ -61,14 +56,13 @@ mod tests {
         let analysis = DistributionAnalyzer::analyze(events);
 
         assert_eq!(analysis.total_events, 100);
-        assert!(analysis.hit_rate > 0.0 && analysis.hit_rate < 1.0);
         assert!(analysis.command_distribution.contains_key(&CommandType::Get));
         assert!(analysis.command_distribution.contains_key(&CommandType::Set));
 
         let get_count = analysis.command_distribution.get(&CommandType::Get).unwrap_or(&0);
         let set_count = analysis.command_distribution.get(&CommandType::Set).unwrap_or(&0);
-        println!("  Distribution: {} GET, {} SET, hit_rate: {:.2}%",
-                 get_count, set_count, analysis.hit_rate * 100.0);
+        println!("  Distribution: {} GET, {} SET",
+                 get_count, set_count);
 
         // Phase 4: Generate traffic from analysis
         println!("Phase 4: Generating traffic from analysis...");
@@ -115,7 +109,6 @@ mod tests {
                 key_size: 42,
                 value_size: None,
                 flags: Flags::empty(),
-                response: Response::Found(512),
             },
             Event {
                 timestamp: 54321,
@@ -125,7 +118,6 @@ mod tests {
                 key_size: 16,
                 value_size: Some(256),
                 flags: Flags::empty(),
-                response: Response::NotFound,
             },
         ];
 
@@ -182,11 +174,6 @@ mod tests {
                     None
                 },
                 flags: Flags::empty(),
-                response: match i % 7 {
-                    0 => Response::NotFound,
-                    1 => Response::Error,
-                    _ => Response::Found((i as u32).wrapping_mul(1024)),
-                },
             };
             writer.write_event(&event).unwrap();
         }

@@ -38,23 +38,6 @@ pub fn run(input: &str) -> Result<()> {
         println!("{:?}: {} ({:.1}%)", cmd, count, percentage);
     }
 
-    // Response statistics
-    println!("\n─ Response Statistics ─");
-    println!("Total responses: {}", analysis.total_responses);
-    println!("Cache hits: {} ({:.2}%)", analysis.hit_count, analysis.hit_rate * 100.0);
-    println!("Cache misses: {} ({:.2}%)", analysis.total_responses - analysis.hit_count, (1.0 - analysis.hit_rate) * 100.0);
-
-    // Response distribution
-    if !analysis.response_distribution.is_empty() {
-        println!("\nResponse breakdown:");
-        let mut resp_entries: Vec<_> = analysis.response_distribution.iter().collect();
-        resp_entries.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
-        for (resp_type, count) in resp_entries {
-            let percentage = (*count as f64 / analysis.total_responses as f64) * 100.0;
-            println!("  {}: {} ({:.1}%)", resp_type, count, percentage);
-        }
-    }
-
     // Key size distribution
     println!("\n─ Key Size Distribution ─");
     if !analysis.key_size_distribution.is_empty() {

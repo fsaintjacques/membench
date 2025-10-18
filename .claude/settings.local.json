@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/fsaintjacques/.config/superpowers/skills/skills/collaboration/executing-plans/**)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(RUST_BACKTRACE=1 cargo test:*)",
+      "Bash(cargo doc:*)",
+      "Bash(cargo search:*)",
+      "Read(//Users/fsaintjacques/.config/superpowers/skills/skills/collaboration/brainstorming/**)",
+      "Read(//Users/fsaintjacques/.config/superpowers/skills/skills/collaboration/writing-plans/**)",
+      "Read(//Users/fsaintjacques/.config/superpowers/skills/skills/collaboration/subagent-driven-development/**)",
+      "Bash(cargo check:*)",
+      "Bash(/Users/fsaintjacques/src/membench/target/release/membench replay:*)",
+      "Bash(lsof:*)",
+      "Bash(cargo clean:*)",
+      "Bash(/Users/fsaintjacques/src/membench/target/release/membench:*)",
+      "Read(//private/tmp/**)",
+      "Bash(./target/release/membench:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

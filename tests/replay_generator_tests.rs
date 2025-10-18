@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use membench::replay::{TrafficGenerator, AnalysisResult};
-    use membench::profile::{CommandType, Response};
+    use membench::profile::CommandType;
     use std::collections::HashMap;
 
     #[test]
@@ -15,10 +15,6 @@ mod tests {
             command_distribution: cmd_dist,
             key_size_distribution: vec![(10, 50), (20, 50)],
             value_size_distribution: vec![(100, 50), (200, 50)],
-            response_distribution: HashMap::new(),
-            hit_count: 80,
-            total_responses: 100,
-            hit_rate: 0.8,
         };
 
         let mut gen = TrafficGenerator::new(analysis);
@@ -41,10 +37,6 @@ mod tests {
             command_distribution: cmd_dist,
             key_size_distribution: vec![(10, 100)],
             value_size_distribution: vec![(100, 100)],
-            response_distribution: HashMap::new(),
-            hit_count: 80,
-            total_responses: 100,
-            hit_rate: 0.8,
         };
 
         let mut gen = TrafficGenerator::new(analysis);
@@ -64,10 +56,6 @@ mod tests {
             command_distribution: cmd_dist,
             key_size_distribution: vec![(10, 100)],
             value_size_distribution: vec![(100, 100)],
-            response_distribution: HashMap::new(),
-            hit_count: 80,
-            total_responses: 100,
-            hit_rate: 0.8,
         };
 
         let mut gen = TrafficGenerator::new(analysis);
@@ -87,10 +75,6 @@ mod tests {
             command_distribution: cmd_dist,
             key_size_distribution: vec![(10, 100)],
             value_size_distribution: vec![],
-            response_distribution: HashMap::new(),
-            hit_count: 80,
-            total_responses: 100,
-            hit_rate: 0.8,
         };
 
         let mut gen = TrafficGenerator::new(analysis);

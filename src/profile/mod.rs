@@ -38,13 +38,6 @@ impl Flags {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Response {
-    Found(u32),  // response_size
-    NotFound,
-    Error,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub timestamp: u64,
@@ -54,7 +47,6 @@ pub struct Event {
     pub key_size: u32,
     pub value_size: Option<u32>,
     pub flags: Flags,
-    pub response: Response,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

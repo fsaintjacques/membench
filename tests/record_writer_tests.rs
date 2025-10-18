@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use membench::record::ProfileWriter;
-    use membench::profile::{Event, Response, CommandType, Flags};
+    use membench::profile::{Event, CommandType, Flags};
     use tempfile::NamedTempFile;
 
     #[test]
@@ -19,7 +19,6 @@ mod tests {
             key_size: 10,
             value_size: None,
             flags: Flags::empty(),
-            response: Response::Found(100),
         };
 
         writer.write_event(&event).unwrap();

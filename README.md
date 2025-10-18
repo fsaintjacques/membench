@@ -1,6 +1,6 @@
 # membench
 
-A privacy-preserving memcache traffic capture and replay tool for benchmarking realistic workloads without exposing sensitive keys or values.
+A memcache traffic capture and replay tool for benchmarking realistic workloads without exposing sensitive keys or values.
 
 ## Overview
 
@@ -13,14 +13,10 @@ The tool works in two phases:
 
 ## Key Features
 
-- **Privacy-Preserving**: Keys and values are never stored. Only command types, size distributions, and response patterns are captured
 - **Deterministic Hashing**: Keys are hashed with a configurable salt, allowing reproducible anonymization across runs
 - **Zero Production Impact**: Uses passive network capture (libpcap) with no instrumentation or modifications to memcached servers
-- **Compact Profiles**: Binary serialization keeps captured profiles small, even for large traffic volumes
-- **Exact Replay**: Replays the exact sequence of commands from capture, preserving connection topology and access patterns
-- **Deterministic Keys/Values**: Generates reproducible keys and values based on captured hashes and sizes
-- **Async I/O**: Replay engine uses Tokio async runtime with true concurrent connection handling (scales to hundreds of connections)
-- **Flexible Looping**: Run once, N times, or infinitely with graceful Ctrl+C shutdown
+- **Reproducible Replay**: Replays the sequence of commands from capture, preserving connection topology and access patterns
+- **Deterministic Keys/Values**: Generates reproducible distribution of keys and values based on captured hashes and sizes
 
 ## Installation
 
@@ -166,30 +162,6 @@ Shows:
 - Cache hit rate
 - Time range of capture
 
-## Profile Format
-
-Profiles are binary files created by the record mode. They contain:
-
-1. **ProfileMetadata** (bincode serialized)
-   - Magic number (0xDEADBEEF)
-   - Version (1)
-   - Total event count
-   - Time range (first/last timestamp)
-   - Unique connection count
-   - Command distribution histogram
-
-2. **Event Stream** (bincode serialized)
-   - Timestamp (u64)
-   - Connection ID (u32)
-   - Command type (Get/Set/Delete/Noop)
-   - Key hash (u64)
-   - Key size (u32)
-   - Value size (Option<u32>)
-   - Flags (bitfield)
-   - Response type (Found/NotFound/Error)
-
-The format is compact and self-describing, allowing profiles to be exchanged between different versions of membench (with backward compatibility guarantees).
-
 ## How It Works
 
 ### Recording
@@ -211,35 +183,13 @@ The format is compact and self-describing, allowing profiles to be exchanged bet
 7. Statistics are collected and reported
 8. Looping repeats the profile based on configured mode (once, N times, or infinite)
 
-## Privacy Guarantees
+## Privacy with distribution preserving
 
 - **No Key Storage**: Original keys are never stored. Only hashes are recorded.
-- **No Value Storage**: Values themselves are never stored. Only sizes are recorded.
 - **Deterministic Hashing**: Same key always produces same hash within a profile (same salt)
 - **Anonymous Replay**: Replayed commands use synthetic keys that match the captured size/distribution but don't correspond to original keys
 
-Even with access to a profile file, it's computationally infeasible to recover original keys (they would need to be brute-forced through the hash function).
-
-## Performance Characteristics
-
-- **Capture Overhead**: Minimal—uses passive network capture with no packet modification
-- **Profile Size**: Typically 100-500 bytes per event (varies with metadata overhead)
-- **Replay Throughput**: 50,000-500,000+ commands/sec depending on target memcached, network, and concurrency level
-- **Memory Usage**: Profiles are streamed (not fully loaded); memory usage stays constant regardless of profile size
-- **Async Concurrency**: Scales to hundreds of concurrent connections using Tokio async tasks
-
-## Limitations & Future Work
-
-- Currently supports binary memcache protocol only (not ASCII protocol)
-- Pipelining and multi-get/multi-set commands are recorded as individual events
-- Replay does not match inter-command timing from the capture (commands sent as fast as server accepts)
-- No support for SASL authentication or TLS
-- Packet capture on loopback interface has limited support (works best on real network interfaces)
-- Future: eBPF-based capture for improved real network support without libpcap
-
-## Contributing
-
-Contributions are welcome. Please open issues for bugs or feature requests.
+Even with access to a profile file, it's impractical to recover original keys if using random salt (the default)
 
 ## License
 

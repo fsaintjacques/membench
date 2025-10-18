@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use crate::record::{PacketCapture, StreamReassembler, MemcacheParser, Anonymizer, ProfileWriter};
-use crate::profile::{Event, Response};
+use crate::profile::Event;
 
 pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Result<()> {
     let salt = salt.unwrap_or_else(|| {
@@ -96,7 +96,6 @@ pub fn run(interface: &str, port: u16, output: &str, salt: Option<u64>) -> Resul
                                     key_size,
                                     value_size: cmd.value_size,
                                     flags: cmd.flags,
-                                    response: Response::Found(0), // Would parse response in full impl
                                 };
 
                                 writer.write_event(&event)?;
