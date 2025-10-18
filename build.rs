@@ -1,5 +1,4 @@
 use std::env;
-use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
@@ -9,9 +8,22 @@ fn main() {
 
         let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-        // Compile eBPF program
+        // Check if bpfel target is available (x86_64 only)
+        let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+
+        if target_arch != "x86_64" {
+            println!("cargo:warning=eBPF compilation requires x86_64 (current: {}), using stub", target_arch);
+            std::fs::write(out_dir.join("programs"), b"")
+                .expect("failed to create stub");
+            println!("cargo:rustc-env=EBPF_OUT_DIR={}", out_dir.display());
+            println!("cargo:rerun-if-changed=ebpf/src");
+            return;
+        }
+
+        // Compile eBPF program (requires nightly + bpfel-unknown-none target)
         let status = Command::new("cargo")
-            .args(&[
+            .args([
+                "+nightly",
                 "build",
                 "--release",
                 "--target=bpfel-unknown-none",
@@ -31,7 +43,8 @@ fn main() {
                 println!("cargo:warning=eBPF program compiled successfully");
             }
             _ => {
-                println!("cargo:warning=eBPF program compilation failed - stub used");
+                println!("cargo:warning=eBPF compilation failed (requires nightly + bpfel target), using stub");
+                println!("cargo:warning=Install with: rustup +nightly target add bpfel-unknown-none");
                 // Create empty file as fallback
                 std::fs::write(out_dir.join("programs"), b"")
                     .expect("failed to create stub");
