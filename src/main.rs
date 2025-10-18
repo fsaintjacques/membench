@@ -4,6 +4,10 @@ use clap::{Parser, Subcommand};
 #[command(name = "membench")]
 #[command(about = "Privacy-preserving memcache traffic capture and replay")]
 struct Cli {
+    /// Enable verbose output (-v for info, -vv for debug, -vvv for trace)
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -39,8 +43,22 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
     let cli = Cli::parse();
+
+    // Initialize logging based on verbosity level
+    let log_level = match cli.verbose {
+        0 => tracing::Level::WARN,
+        1 => tracing::Level::INFO,
+        2 => tracing::Level::DEBUG,
+        _ => tracing::Level::TRACE,
+    };
+
+    tracing_subscriber::fmt()
+        .with_max_level(log_level)
+        .with_target(cli.verbose >= 2)  // Show module targets in debug+ mode
+        .with_level(true)                // Always show log level
+        .init();
+
     match cli.command {
         Commands::Record { interface, port, output, salt } => {
             if let Err(e) = run_record(&interface, port, &output, salt) {
@@ -65,6 +83,8 @@ async fn main() {
 
 fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> anyhow::Result<()> {
     use std::time::SystemTime;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
     use membench::record::{PacketCapture, StreamReassembler, MemcacheParser, Anonymizer, ProfileWriter};
     use membench::profile::{Event, Response};
 
@@ -75,76 +95,126 @@ fn run_record(interface: &str, port: u16, output: &str, salt: Option<u64>) -> an
             .as_secs()
     });
 
-    println!("Recording from {}:{} to {} (salt: {})", interface, port, output, salt);
-    println!("Capturing memcache traffic... Press Ctrl+C to stop.");
+    tracing::info!("Recording from {}:{} to {}", interface, port, output);
+    tracing::debug!("Salt: {}", salt);
+    tracing::info!("Capturing memcache traffic... Press Ctrl+C to stop.");
+    tracing::debug!("Available devices: {:?}", PacketCapture::list_devices().unwrap_or_default());
 
     // Initialize components
     let mut capture = PacketCapture::new(interface, port)?;
+    tracing::debug!("Capture initialized on interface: {}", interface);
     let _reassembler = StreamReassembler::new();
     let parser = MemcacheParser::new();
     let anonymizer = Anonymizer::new(salt);
     let mut writer = ProfileWriter::new(output)?;
 
+    // Set up signal handling for graceful shutdown
+    let should_exit = Arc::new(AtomicBool::new(false));
+    let should_exit_clone = Arc::clone(&should_exit);
+
+    ctrlc::set_handler(move || {
+        tracing::info!("Received Ctrl+C, shutting down gracefully...");
+        should_exit_clone.store(true, Ordering::SeqCst);
+    }).expect("Error setting Ctrl+C handler");
+
     // Track connection state
     let mut packet_count = 0u64;
     let mut event_count = 0u64;
 
-    println!("\nCapturing packets... (Press Ctrl+C to stop)\n");
+    tracing::info!("Capturing packets... (Press Ctrl+C to stop)");
 
     loop {
+        // Check if we should exit
+        if should_exit.load(Ordering::SeqCst) {
+            tracing::info!("Shutdown signal received");
+            break;
+        }
+
         // Capture packet
         match capture.next_packet() {
             Ok(packet_data) => {
                 packet_count += 1;
 
+                // pcap returns full packets with headers. For loopback (lo0) on macOS,
+                // we need to skip the link layer header (typically 14 bytes for ethernet,
+                // but loopback has a different format)
+                // Try to find memcache protocol markers to skip headers
+                let payload = if let Some(pos) = packet_data.windows(2).position(|w| w == b"\r\n") {
+                    // Found \r\n which suggests we're at or near application data
+                    // Search backwards for command start (GET, SET, etc.)
+                    if let Some(cmd_start) = packet_data[..pos].windows(3).rposition(|w| {
+                        w == b"get" || w == b"set" || w == b"del" || w == b"noo"
+                    }) {
+                        &packet_data[cmd_start..]
+                    } else {
+                        packet_data
+                    }
+                } else {
+                    packet_data
+                };
+
                 // Try to parse as memcache command
-                // Note: This is a simplified parser that handles basic cases
-                if let Ok(data_str) = std::str::from_utf8(packet_data) {
+                if let Ok(data_str) = std::str::from_utf8(payload) {
                     if data_str.contains('\r') && data_str.contains('\n') {
                         // Try parsing as a command
-                        if let Ok((cmd, _)) = parser.parse_command(packet_data) {
-                            // Create event from parsed command
-                            let event = Event {
-                                timestamp: SystemTime::now()
-                                    .duration_since(SystemTime::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_micros() as u64,
-                                conn_id: (packet_count % 32) as u32, // Simplified connection ID
-                                cmd_type: cmd.cmd_type,
-                                key_hash: anonymizer.hash_key(b"captured_key"), // Would extract real key in full impl
-                                key_size: cmd.key_range.len() as u32,
-                                value_size: cmd.value_size,
-                                flags: cmd.flags,
-                                response: Response::Found(0), // Would parse response in full impl
-                            };
+                        match parser.parse_command(payload) {
+                            Ok((cmd, _)) => {
+                                // Extract the actual key from the payload
+                                let key_bytes = &payload[cmd.key_range.clone()];
+                                let key_size = cmd.key_range.len() as u32;
 
-                            writer.write_event(&event)?;
-                            event_count += 1;
+                                // Create event from parsed command
+                                let event = Event {
+                                    timestamp: SystemTime::now()
+                                        .duration_since(SystemTime::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_micros() as u64,
+                                    conn_id: (packet_count % 32) as u32, // Simplified connection ID
+                                    cmd_type: cmd.cmd_type,
+                                    key_hash: anonymizer.hash_key(key_bytes), // Hash the actual key
+                                    key_size,
+                                    value_size: cmd.value_size,
+                                    flags: cmd.flags,
+                                    response: Response::Found(0), // Would parse response in full impl
+                                };
+
+                                writer.write_event(&event)?;
+                                event_count += 1;
+
+                                if packet_count % 1000 == 0 {
+                                    tracing::info!("Captured {} packets, {} events", packet_count, event_count);
+                                }
+                            }
+                            Err(e) => {
+                                if packet_count <= 10 {
+                                    let data_preview = String::from_utf8_lossy(packet_data);
+                                    let preview = if data_preview.len() > 100 {
+                                        format!("{}...", &data_preview[..100])
+                                    } else {
+                                        data_preview.to_string()
+                                    };
+                                    tracing::debug!("Parse error on packet {}: {} | Data (len={}): {:?}", packet_count, e, packet_data.len(), preview);
+                                }
+                            }
                         }
                     }
                 }
             }
             Err(_) => {
-                // On interrupt (Ctrl+C), gracefully finish
-                if packet_count == 0 {
-                    println!("\nNo packets captured. Make sure:");
-                    println!("  1. memcached is running on {}:{}", interface, port);
-                    println!("  2. There is traffic on that port");
-                    println!("  3. You have appropriate permissions (may need sudo)");
-                }
-                break;
+                // Timeout or other error - just continue
+                continue;
             }
         }
     }
 
     // Finalize profile
-    println!("\nFinalizing profile...");
+    tracing::info!("Finalizing profile...");
     writer.finish()?;
 
-    println!("✓ Recording complete");
-    println!("  Profile: {}", output);
-    println!("  Packets captured: {}", packet_count);
-    println!("  Events recorded: {}", event_count);
+    tracing::info!("✓ Recording complete");
+    tracing::info!("  Profile: {}", output);
+    tracing::info!("  Packets captured: {}", packet_count);
+    tracing::info!("  Events recorded: {}", event_count);
 
     Ok(())
 }

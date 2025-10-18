@@ -31,12 +31,16 @@ impl MemcacheParser {
             return Err(anyhow!("empty command"));
         }
 
-        let cmd = std::str::from_utf8(parts[0])?;
-        let cmd_type = match cmd {
-            "mg" => CommandType::Get,
-            "ms" => CommandType::Set,
-            "md" => CommandType::Delete,
-            "mn" => CommandType::Noop,
+        let cmd = std::str::from_utf8(parts[0])?.to_lowercase();
+        let cmd_type = match cmd.as_str() {
+            "get" => CommandType::Get,
+            "mg" => CommandType::Get,      // Meta protocol
+            "set" => CommandType::Set,
+            "ms" => CommandType::Set,      // Meta protocol
+            "delete" => CommandType::Delete,
+            "md" => CommandType::Delete,   // Meta protocol
+            "noop" => CommandType::Noop,
+            "mn" => CommandType::Noop,     // Meta protocol
             _ => return Err(anyhow!("unknown command: {}", cmd)),
         };
 
