@@ -14,7 +14,7 @@ pub trait PacketSource {
     fn is_finite(&self) -> bool;
 
     /// Optional: Get capture statistics (when available)
-    fn stats(&self) -> Option<CaptureStats> {
+    fn stats(&mut self) -> Option<CaptureStats> {
         None  // Default: no stats
     }
 }
@@ -25,6 +25,56 @@ pub struct CaptureStats {
     pub packets_received: u64,
     pub packets_dropped: u64,
     pub bytes_received: u64,
+}
+
+/// Live network interface capture
+pub struct LiveCapture {
+    handle: Capture<pcap::Active>,
+    interface: String,
+}
+
+impl LiveCapture {
+    pub fn new(interface: &str, port: u16) -> Result<Self> {
+        let mut cap = Capture::from_device(interface)
+            .context(format!("failed to open device: {}", interface))?
+            .promisc(true)
+            .snaplen(65535)
+            .open()
+            .context("failed to open capture")?;
+
+        let filter = format!("tcp port {}", port);
+        cap.filter(&filter, true)
+            .context("failed to set filter")?;
+
+        Ok(LiveCapture {
+            handle: cap,
+            interface: interface.to_string(),
+        })
+    }
+}
+
+impl PacketSource for LiveCapture {
+    fn next_packet(&mut self) -> Result<&[u8]> {
+        self.handle.next_packet()
+            .context("failed to read packet")
+            .map(|pkt| pkt.data)
+    }
+
+    fn source_info(&self) -> &str {
+        &self.interface
+    }
+
+    fn is_finite(&self) -> bool {
+        false  // Network interface is continuous
+    }
+
+    fn stats(&mut self) -> Option<CaptureStats> {
+        self.handle.stats().ok().map(|s| CaptureStats {
+            packets_received: s.received as u64,
+            packets_dropped: s.dropped as u64,
+            bytes_received: 0,
+        })
+    }
 }
 
 enum CaptureHandle {
