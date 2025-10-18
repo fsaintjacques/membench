@@ -41,11 +41,21 @@ pub fn trace_recv_enter(ctx: TracePointContext) -> u32 {
 }
 
 fn try_trace_recv(ctx: TracePointContext) -> Result<u32, i64> {
-    // TODO: Extract socket fd and port from context
-    // TODO: Check if port == 11211
-    // TODO: Capture recv data
+    // Read syscall arguments
+    // arg 0: fd (socket file descriptor)
+    // arg 1: buf (receive buffer pointer)
+    // arg 2: len (buffer length)
+
+    let fd: i32 = unsafe { ctx.read_at(16)? }; // fd is at offset 16
+    let buf_ptr: u64 = unsafe { ctx.read_at(24)? }; // buf at offset 24
+    let buf_len: usize = unsafe { ctx.read_at(32)? }; // len at offset 32
+
+    // TODO: Get socket info (port) from fd
+    // TODO: Filter for port 11211
+    // TODO: Read data from buffer
     // TODO: Send to ringbuf
 
+    info!(&ctx, "recv: fd={} buf_len={}", fd, buf_len);
     Ok(0)
 }
 
