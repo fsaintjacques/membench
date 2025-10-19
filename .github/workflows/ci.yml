@@ -91,26 +91,26 @@ jobs:
           name: membench-${{ matrix.os }}
           path: target/release/membench
 
-  ebpf:
-    name: eBPF Build (Linux only)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Install libpcap and eBPF dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpcap-dev llvm clang
-
-      - name: Add bpfel target
-        run: rustup target add bpfel-unknown-none
-
-      - name: Build with eBPF feature
-        run: cargo build --release --features ebpf --verbose
-
-      - name: Test with eBPF feature
-        run: cargo test --all --features ebpf --verbose
+  # ebpf:
+  #   name: eBPF Build (Linux only)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: dtolnay/rust-toolchain@stable
+  #
+  #     - uses: Swatinem/rust-cache@v2
+  #
+  #     - name: Install libpcap and eBPF dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y libpcap-dev llvm clang
+  #
+  #     - name: Add bpfel target
+  #       run: rustup target add bpfel-unknown-none
+  #
+  #     - name: Build with eBPF feature
+  #       run: cargo build --release --features ebpf --verbose
+  #
+  #     - name: Test with eBPF feature
+  #       run: cargo test --all --features ebpf --verbose

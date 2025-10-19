@@ -125,7 +125,7 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
                                 writer.write_event(&event)?;
                                 event_count += 1;
 
-                                if packet_count % 1000 == 0 {
+                                if packet_count.is_multiple_of(1000) {
                                     tracing::info!(
                                         "Captured {} packets, {} events",
                                         packet_count,
