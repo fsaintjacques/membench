@@ -73,9 +73,10 @@ impl EbpfCapture {
         check_ebpf_capabilities()?;
 
         // Load eBPF bytecode
-        let mut bpf = Ebpf::load(include_bytes_aligned!(
-            concat!(env!("OUT_DIR"), "/programs")
-        ))?;
+        let mut bpf = Ebpf::load(include_bytes_aligned!(concat!(
+            env!("OUT_DIR"),
+            "/programs"
+        )))?;
 
         // Attach tracepoint to sys_enter_recvfrom
         let program: &mut TracePoint = bpf
@@ -91,7 +92,8 @@ impl EbpfCapture {
         let (tx, rx) = mpsc::unbounded_channel();
 
         // Spawn task to read from ringbuf
-        let ringbuf: AyaRingBuf<_> = bpf.take_map("EVENTS")
+        let ringbuf: AyaRingBuf<_> = bpf
+            .take_map("EVENTS")
             .context("failed to get EVENTS map")?
             .try_into()?;
 
@@ -110,15 +112,16 @@ impl EbpfCapture {
 }
 
 /// Read events from ringbuf and send to channel
-async fn read_events(mut ringbuf: AyaRingBuf<aya::maps::MapData>, tx: mpsc::UnboundedSender<Vec<u8>>) {
+async fn read_events(
+    mut ringbuf: AyaRingBuf<aya::maps::MapData>,
+    tx: mpsc::UnboundedSender<Vec<u8>>,
+) {
     loop {
         match ringbuf.next() {
             Some(event_data) => {
                 // Parse event
                 if event_data.len() >= std::mem::size_of::<SocketDataEvent>() {
-                    let event = unsafe {
-                        &*(event_data.as_ptr() as *const SocketDataEvent)
-                    };
+                    let event = unsafe { &*(event_data.as_ptr() as *const SocketDataEvent) };
 
                     let data_len = event.data_len as usize;
                     if data_len > 0 && data_len <= event.data.len() {
