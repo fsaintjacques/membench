@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use membench::record::MemcacheParser;
     use membench::profile::CommandType;
+    use membench::record::MemcacheParser;
 
     #[test]
     fn test_parse_get_request() {

@@ -18,7 +18,7 @@ pub trait PacketSource {
 
     /// Optional: Get capture statistics (when available)
     fn stats(&mut self) -> Option<CaptureStats> {
-        None  // Default: no stats
+        None // Default: no stats
     }
 }
 
@@ -46,8 +46,7 @@ impl LiveCapture {
             .context("failed to open capture")?;
 
         let filter = format!("tcp port {}", port);
-        cap.filter(&filter, true)
-            .context("failed to set filter")?;
+        cap.filter(&filter, true).context("failed to set filter")?;
 
         Ok(LiveCapture {
             handle: cap,
@@ -58,7 +57,8 @@ impl LiveCapture {
 
 impl PacketSource for LiveCapture {
     fn next_packet(&mut self) -> Result<&[u8]> {
-        self.handle.next_packet()
+        self.handle
+            .next_packet()
             .context("failed to read packet")
             .map(|pkt| pkt.data)
     }
@@ -68,7 +68,7 @@ impl PacketSource for LiveCapture {
     }
 
     fn is_finite(&self) -> bool {
-        false  // Network interface is continuous
+        false // Network interface is continuous
     }
 
     fn stats(&mut self) -> Option<CaptureStats> {
@@ -88,12 +88,11 @@ pub struct FileCapture {
 
 impl FileCapture {
     pub fn new(path: &str, port: u16) -> Result<Self> {
-        let mut cap = Capture::from_file(path)
-            .context(format!("failed to open pcap file: {}", path))?;
+        let mut cap =
+            Capture::from_file(path).context(format!("failed to open pcap file: {}", path))?;
 
         let filter = format!("tcp port {}", port);
-        cap.filter(&filter, true)
-            .context("failed to set filter")?;
+        cap.filter(&filter, true).context("failed to set filter")?;
 
         Ok(FileCapture {
             handle: cap,
@@ -104,7 +103,8 @@ impl FileCapture {
 
 impl PacketSource for FileCapture {
     fn next_packet(&mut self) -> Result<&[u8]> {
-        self.handle.next_packet()
+        self.handle
+            .next_packet()
             .context("failed to read packet")
             .map(|pkt| pkt.data)
     }
@@ -114,7 +114,7 @@ impl PacketSource for FileCapture {
     }
 
     fn is_finite(&self) -> bool {
-        true  // File has end
+        true // File has end
     }
 }
 
@@ -161,8 +161,7 @@ impl PacketCapture {
     }
 
     pub fn list_devices() -> Result<Vec<String>> {
-        let devices = pcap::Device::list()
-            .context("failed to list devices")?;
+        let devices = pcap::Device::list().context("failed to list devices")?;
         Ok(devices.into_iter().map(|d| d.name).collect())
     }
 

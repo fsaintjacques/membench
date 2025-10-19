@@ -1,8 +1,8 @@
-use anyhow::Result;
-use tokio::net::TcpStream;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use crate::profile::{Event, CommandType};
 use super::ProtocolMode;
+use crate::profile::{CommandType, Event};
+use anyhow::Result;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 pub struct ReplayClient {
     stream: TcpStream,
@@ -54,9 +54,7 @@ impl ReplayClient {
             CommandType::Delete => {
                 format!("delete {}\r\n", key)
             }
-            CommandType::Noop => {
-                "version\r\n".to_string()
-            }
+            CommandType::Noop => "version\r\n".to_string(),
         }
     }
 
@@ -74,9 +72,7 @@ impl ReplayClient {
             CommandType::Delete => {
                 format!("md {}\r\n", key)
             }
-            CommandType::Noop => {
-                "mn\r\n".to_string()
-            }
+            CommandType::Noop => "mn\r\n".to_string(),
         }
     }
 
@@ -91,7 +87,7 @@ impl ReplayClient {
         let hash_hex = format!("{:016x}", key_hash);
 
         // Repeat and truncate to match key_size
-        let key = (hash_hex.repeat(((key_size as usize + hash_hex.len() - 1) / hash_hex.len()) + 1))
+        let key = (hash_hex.repeat((key_size as usize).div_ceil(hash_hex.len()) + 1))
             .chars()
             .take(key_size as usize)
             .collect::<String>();

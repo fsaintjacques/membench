@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
     use membench::{
-        profile::{Event, CommandType, Flags},
+        profile::{CommandType, Event, Flags},
         record::ProfileWriter,
-        replay::{ProfileReader, DistributionAnalyzer},
+        replay::{DistributionAnalyzer, ProfileReader},
     };
     use tempfile::TempDir;
 
@@ -47,8 +47,10 @@ mod tests {
 
         assert_eq!(metadata.total_events, 100);
         assert_eq!(metadata.unique_connections, 4);
-        println!("  Metadata verified: {} events, {} connections",
-                 metadata.total_events, metadata.unique_connections);
+        println!(
+            "  Metadata verified: {} events, {} connections",
+            metadata.total_events, metadata.unique_connections
+        );
 
         // Phase 3: Analyze distributions
         println!("Phase 3: Analyzing distributions...");
@@ -56,13 +58,22 @@ mod tests {
         let analysis = DistributionAnalyzer::analyze(events);
 
         assert_eq!(analysis.total_events, 100);
-        assert!(analysis.command_distribution.contains_key(&CommandType::Get));
-        assert!(analysis.command_distribution.contains_key(&CommandType::Set));
+        assert!(analysis
+            .command_distribution
+            .contains_key(&CommandType::Get));
+        assert!(analysis
+            .command_distribution
+            .contains_key(&CommandType::Set));
 
-        let get_count = analysis.command_distribution.get(&CommandType::Get).unwrap_or(&0);
-        let set_count = analysis.command_distribution.get(&CommandType::Set).unwrap_or(&0);
-        println!("  Distribution: {} GET, {} SET",
-                 get_count, set_count);
+        let get_count = analysis
+            .command_distribution
+            .get(&CommandType::Get)
+            .unwrap_or(&0);
+        let set_count = analysis
+            .command_distribution
+            .get(&CommandType::Set)
+            .unwrap_or(&0);
+        println!("  Distribution: {} GET, {} SET", get_count, set_count);
 
         println!("E2E test passed: Profile created, read, and analyzed successfully");
     }
@@ -165,6 +176,9 @@ mod tests {
         let analysis = DistributionAnalyzer::analyze(events);
         assert_eq!(analysis.total_events, event_count as u64);
 
-        println!("Large profile test passed: {} events processed", event_count);
+        println!(
+            "Large profile test passed: {} events processed",
+            event_count
+        );
     }
 }

@@ -1,8 +1,8 @@
 //! eBPF program and userspace integration
 
-use anyhow::Result;
 use crate::record::capture::CaptureStats;
 use crate::record::capture::PacketSource;
+use anyhow::Result;
 use aya::Ebpf;
 
 /// Check if running with required eBPF capabilities
@@ -22,8 +22,8 @@ fn check_ebpf_capabilities() -> Result<()> {
 pub struct EbpfCapture {
     interface: String,
     port: u16,
-    _bpf: Option<Ebpf>,  // Holds loaded eBPF program
-    packets_buffer: Vec<Vec<u8>>,  // Buffered packets
+    _bpf: Option<Ebpf>,           // Holds loaded eBPF program
+    packets_buffer: Vec<Vec<u8>>, // Buffered packets
 }
 
 impl EbpfCapture {
@@ -45,7 +45,7 @@ impl EbpfCapture {
         Ok(EbpfCapture {
             interface: interface.to_string(),
             port,
-            _bpf: None,  // TODO: Load program
+            _bpf: None, // TODO: Load program
             packets_buffer: Vec::new(),
         })
     }

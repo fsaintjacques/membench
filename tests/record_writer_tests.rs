@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use membench::profile::{CommandType, Event, Flags};
     use membench::record::ProfileWriter;
-    use membench::profile::{Event, CommandType, Flags};
     use tempfile::NamedTempFile;
 
     #[test]

@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::profile::Event;
+use anyhow::Result;
 use std::fs::File;
 use std::io::Read;
 
@@ -34,10 +34,8 @@ impl ProfileStreamer {
 
         // Read metadata length
         let metadata_len_pos = end_marker_pos - 2;
-        let metadata_len = u16::from_le_bytes([
-            data[metadata_len_pos],
-            data[metadata_len_pos + 1],
-        ]) as usize;
+        let metadata_len =
+            u16::from_le_bytes([data[metadata_len_pos], data[metadata_len_pos + 1]]) as usize;
 
         let event_end_offset = metadata_len_pos - metadata_len;
 
@@ -48,7 +46,7 @@ impl ProfileStreamer {
         })
     }
 
-    pub fn next(&mut self) -> Result<Option<Event>> {
+    pub fn next_event(&mut self) -> Result<Option<Event>> {
         // Check if we've reached the metadata section
         if self.current_offset >= self.event_end_offset {
             return Ok(None);

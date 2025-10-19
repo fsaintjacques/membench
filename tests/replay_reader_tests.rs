@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use membench::replay::ProfileReader;
+    use membench::profile::{CommandType, Event, Flags};
     use membench::record::ProfileWriter;
-    use membench::profile::{Event, CommandType, Flags};
+    use membench::replay::ProfileReader;
     use tempfile::TempDir;
 
     #[test]

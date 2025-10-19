@@ -16,12 +16,18 @@ mod tests {
         create_minimal_pcap(&pcap_path).unwrap();
 
         // Verify file detection
-        assert!(PacketCapture::is_file(pcap_path.to_str().unwrap()),
-                "Should detect existing PCAP file");
-        assert!(!PacketCapture::is_file("eth0"),
-                "Should not detect interface name as file");
-        assert!(!PacketCapture::is_file("lo0"),
-                "Should not detect loopback as file");
+        assert!(
+            PacketCapture::is_file(pcap_path.to_str().unwrap()),
+            "Should detect existing PCAP file"
+        );
+        assert!(
+            !PacketCapture::is_file("eth0"),
+            "Should not detect interface name as file"
+        );
+        assert!(
+            !PacketCapture::is_file("lo0"),
+            "Should not detect loopback as file"
+        );
     }
 
     #[test]

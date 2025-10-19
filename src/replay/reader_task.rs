@@ -1,7 +1,7 @@
-use anyhow::Result;
-use tokio::sync::mpsc;
-use std::collections::HashMap;
 use crate::profile::Event;
+use anyhow::Result;
+use std::collections::HashMap;
+use tokio::sync::mpsc;
 
 pub enum LoopMode {
     Once,
@@ -36,7 +36,7 @@ pub async fn reader_task(
         tracing::debug!("Reader task iteration {}", iteration);
 
         loop {
-            match streamer.next()? {
+            match streamer.next_event()? {
                 Some(event) => {
                     let conn_id = event.conn_id;
 

@@ -1,8 +1,8 @@
+use crate::profile::{Event, ProfileMetadata};
 use anyhow::Result;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use crate::profile::{Event, ProfileMetadata};
-use std::collections::HashSet;
 
 pub struct ProfileWriter {
     file: BufWriter<File>,
@@ -44,7 +44,9 @@ impl ProfileWriter {
         }
         self.last_timestamp = Some(event.timestamp);
 
-        *self.metadata.command_distribution
+        *self
+            .metadata
+            .command_distribution
             .entry(event.cmd_type)
             .or_insert(0) += 1;
 
@@ -62,7 +64,8 @@ impl ProfileWriter {
         // Write metadata: data first, then length prefix
         let encoded_metadata = bincode::serialize(&self.metadata)?;
         self.file.write_all(&encoded_metadata)?;
-        self.file.write_all(&(encoded_metadata.len() as u16).to_le_bytes())?;
+        self.file
+            .write_all(&(encoded_metadata.len() as u16).to_le_bytes())?;
 
         // Write end marker: magic number so we know where metadata ends
         self.file.write_all(&0xDEADBEEFu32.to_le_bytes())?;

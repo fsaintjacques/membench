@@ -4,27 +4,34 @@ use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 use std::time::Instant;
+use tokio::sync::mpsc;
 
-use crate::replay::{
-    ProfileReader,
-    spawn_connection_task,
-    reader_task,
-    LoopMode,
-    ProtocolMode,
-};
 use crate::profile::Event;
+use crate::replay::{reader_task, spawn_connection_task, LoopMode, ProfileReader, ProtocolMode};
 
-pub async fn run(input: &str, target: &str, loop_mode: &str, protocol_mode: ProtocolMode, should_exit: Arc<AtomicBool>) -> Result<()> {
-    tracing::info!("Starting replay: input={}, target={}, mode={}, protocol={}", input, target, loop_mode, protocol_mode);
+pub async fn run(
+    input: &str,
+    target: &str,
+    loop_mode: &str,
+    protocol_mode: ProtocolMode,
+    should_exit: Arc<AtomicBool>,
+) -> Result<()> {
+    tracing::info!(
+        "Starting replay: input={}, target={}, mode={}, protocol={}",
+        input,
+        target,
+        loop_mode,
+        protocol_mode
+    );
 
     // Parse loop mode
     let loop_mode = match loop_mode {
         "once" => LoopMode::Once,
         "infinite" => LoopMode::Infinite,
         s if s.starts_with("times:") => {
-            let count = s.strip_prefix("times:")
+            let count = s
+                .strip_prefix("times:")
                 .and_then(|s| s.parse::<usize>().ok())
                 .ok_or_else(|| anyhow::anyhow!("Invalid loop mode: {}", s))?;
             LoopMode::Times(count)
@@ -63,7 +70,13 @@ pub async fn run(input: &str, target: &str, loop_mode: &str, protocol_mode: Prot
         let should_exit_clone = Arc::clone(&should_exit);
 
         tokio::spawn(async move {
-            reader_task(&input_clone, connection_queues, loop_mode, should_exit_clone).await
+            reader_task(
+                &input_clone,
+                connection_queues,
+                loop_mode,
+                should_exit_clone,
+            )
+            .await
         })
     };
 

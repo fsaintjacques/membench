@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use membench::profile::{Event, CommandType, Flags};
+    use membench::profile::{CommandType, Event, Flags};
 
     #[test]
     fn test_event_serialization() {

@@ -24,7 +24,8 @@
       "Bash(awk:*)",
       "Read(//home/vscode/.config/**)",
       "Bash(echo $HOME)",
-      "Read(//home/vscode/.claude/plugins/cache/superpowers/**)"
+      "Read(//home/vscode/.claude/plugins/cache/superpowers/**)",
+      "Bash(cargo clippy:*)"
     ],
     "deny": [],
     "ask": []

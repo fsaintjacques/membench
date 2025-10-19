@@ -1,6 +1,6 @@
+use crate::profile::{Event, ProfileMetadata};
 use anyhow::Result;
 use std::fs;
-use crate::profile::{Event, ProfileMetadata};
 
 pub struct ProfileReader {
     metadata: ProfileMetadata,
@@ -35,7 +35,8 @@ impl ProfileReader {
         }
 
         let metadata_len_pos = end_marker_pos - 2;
-        let metadata_len = u16::from_le_bytes([data[metadata_len_pos], data[metadata_len_pos + 1]]) as usize;
+        let metadata_len =
+            u16::from_le_bytes([data[metadata_len_pos], data[metadata_len_pos + 1]]) as usize;
 
         if metadata_len_pos < metadata_len {
             return Err(anyhow::anyhow!("metadata length exceeds file size"));

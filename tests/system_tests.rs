@@ -7,11 +7,11 @@
 /// Run with: cargo test --test system_tests -- --ignored --nocapture
 #[cfg(test)]
 mod system_tests {
-    use std::process::{Command, Child};
+    use std::io::Write;
+    use std::net::TcpStream;
+    use std::process::{Child, Command};
     use std::thread;
     use std::time::Duration;
-    use std::net::TcpStream;
-    use std::io::Write;
 
     const MEMCACHED_HOST: &str = "127.0.0.1";
     const MEMCACHED_PORT: u16 = 11211;
@@ -76,7 +76,8 @@ mod system_tests {
         let mut stream = TcpStream::connect(MEMCACHED_ADDR)
             .map_err(|e| format!("Failed to connect to memcached: {}", e))?;
 
-        stream.write_all(b"flush_all\r\n")
+        stream
+            .write_all(b"flush_all\r\n")
             .map_err(|e| format!("Failed to send flush command: {}", e))?;
 
         Ok(())
@@ -165,7 +166,9 @@ mod system_tests {
                 // Verify it's responding
                 match TcpStream::connect(MEMCACHED_ADDR) {
                     Ok(mut stream) => {
-                        stream.write_all(b"version\r\n").expect("Failed to write version command");
+                        stream
+                            .write_all(b"version\r\n")
+                            .expect("Failed to write version command");
                         println!("✓ memcached is responding to commands");
 
                         // Kill memcached
@@ -261,7 +264,10 @@ mod system_tests {
                 assert!(throughput > 0.0, "Throughput should be positive");
             }
         } else {
-            panic!("memtier_benchmark failed: {}", String::from_utf8_lossy(&output.stderr));
+            panic!(
+                "memtier_benchmark failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         // Cleanup
@@ -361,8 +367,10 @@ mod system_tests {
         ];
 
         for (name, clients, requests, time) in workloads {
-            println!("\nTesting workload: {} ({} clients, {} requests, {} sec)",
-                     name, clients, requests, time);
+            println!(
+                "\nTesting workload: {} ({} clients, {} requests, {} sec)",
+                name, clients, requests, time
+            );
 
             let output = Command::new("memtier_benchmark")
                 .arg("--server")
