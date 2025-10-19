@@ -20,10 +20,12 @@
         "anthropic.claude-code"
       ],
       "settings": {
-        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.checkOnSave": {
+          "command": "clippy",
+          "allTargets": true
+        },
         "rust-analyzer.cargo.features": "all",
         "rust-analyzer.cargo.buildScripts.enable": true,
-        "rust-analyzer.checkOnSave.allTargets": true,
         "rust-analyzer.diagnostics.enable": true,
         "rust-analyzer.inlayHints.enable": true,
         "editor.formatOnSave": true,
