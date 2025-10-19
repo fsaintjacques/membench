@@ -87,11 +87,10 @@ impl ReplayClient {
         let hash_hex = format!("{:016x}", key_hash);
 
         // Repeat and truncate to match key_size
-        let key = (hash_hex
-            .repeat((key_size as usize).div_ceil(hash_hex.len()) + 1))
-        .chars()
-        .take(key_size as usize)
-        .collect::<String>();
+        let key = (hash_hex.repeat((key_size as usize).div_ceil(hash_hex.len()) + 1))
+            .chars()
+            .take(key_size as usize)
+            .collect::<String>();
 
         key
     }
