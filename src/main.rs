@@ -93,7 +93,7 @@ async fn main() {
             protocol_mode,
         } => {
             // Parse protocol mode at CLI boundary
-            let protocol_mode = match ProtocolMode::from_str(&protocol_mode) {
+            let protocol_mode = match protocol_mode.parse::<ProtocolMode>() {
                 Ok(mode) => mode,
                 Err(e) => {
                     eprintln!("Replay error: {}", e);

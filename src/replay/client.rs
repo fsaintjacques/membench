@@ -88,7 +88,7 @@ impl ReplayClient {
 
         // Repeat and truncate to match key_size
         let key = (hash_hex
-            .repeat(((key_size as usize + hash_hex.len() - 1) / hash_hex.len()) + 1))
+            .repeat((key_size as usize).div_ceil(hash_hex.len()) + 1))
         .chars()
         .take(key_size as usize)
         .collect::<String>();

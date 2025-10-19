@@ -36,7 +36,7 @@ pub async fn reader_task(
         tracing::debug!("Reader task iteration {}", iteration);
 
         loop {
-            match streamer.next()? {
+            match streamer.next_event()? {
                 Some(event) => {
                     let conn_id = event.conn_id;
 

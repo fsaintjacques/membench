@@ -77,3 +77,9 @@ impl ProfileMetadata {
         }
     }
 }
+
+impl Default for ProfileMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
+}

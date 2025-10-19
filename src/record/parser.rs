@@ -10,6 +10,12 @@ pub struct ParsedCommand {
 
 pub struct MemcacheParser;
 
+impl Default for MemcacheParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemcacheParser {
     pub fn new() -> Self {
         MemcacheParser

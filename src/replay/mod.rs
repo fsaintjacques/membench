@@ -1,6 +1,7 @@
 //! Replay infrastructure and protocol handling
 
 use std::fmt;
+use std::str::FromStr;
 
 pub mod analyzer;
 pub mod client;
@@ -27,9 +28,10 @@ pub enum ProtocolMode {
     Meta,
 }
 
-impl ProtocolMode {
-    /// Parse from string (used at CLI boundary)
-    pub fn from_str(s: &str) -> Result<Self, String> {
+impl FromStr for ProtocolMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "ascii" => Ok(ProtocolMode::Ascii),
             "meta" => Ok(ProtocolMode::Meta),

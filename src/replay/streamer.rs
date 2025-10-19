@@ -46,7 +46,7 @@ impl ProfileStreamer {
         })
     }
 
-    pub fn next(&mut self) -> Result<Option<Event>> {
+    pub fn next_event(&mut self) -> Result<Option<Event>> {
         // Check if we've reached the metadata section
         if self.current_offset >= self.event_end_offset {
             return Ok(None);
