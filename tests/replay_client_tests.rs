@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use membench::replay::{ReplayClient, ProtocolMode};
+    use membench::replay::{ProtocolMode, ReplayClient};
 
     #[tokio::test]
     async fn test_client_interface() {

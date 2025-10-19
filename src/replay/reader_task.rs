@@ -1,7 +1,7 @@
-use anyhow::Result;
-use tokio::sync::mpsc;
-use std::collections::HashMap;
 use crate::profile::Event;
+use anyhow::Result;
+use std::collections::HashMap;
+use tokio::sync::mpsc;
 
 pub enum LoopMode {
     Once,

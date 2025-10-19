@@ -1,7 +1,7 @@
 //! Analyze command implementation
 
+use crate::replay::{DistributionAnalyzer, ProfileReader};
 use anyhow::Result;
-use crate::replay::{ProfileReader, DistributionAnalyzer};
 
 pub fn run(input: &str) -> Result<()> {
     let reader = ProfileReader::new(input)?;
@@ -48,9 +48,11 @@ pub fn run(input: &str) -> Result<()> {
         let min_size = key_sizes.iter().map(|(s, _)| *s).min().unwrap_or(0);
         let max_size = key_sizes.iter().map(|(s, _)| *s).max().unwrap_or(0);
 
-        let avg_size: f64 = key_sizes.iter()
+        let avg_size: f64 = key_sizes
+            .iter()
             .map(|(size, count)| *size as f64 * *count as f64)
-            .sum::<f64>() / total_keys.max(1) as f64;
+            .sum::<f64>()
+            / total_keys.max(1) as f64;
 
         println!("Min: {} bytes", min_size);
         println!("Max: {} bytes", max_size);
@@ -83,14 +85,20 @@ pub fn run(input: &str) -> Result<()> {
         let min_size = value_sizes.iter().map(|(s, _)| *s).min().unwrap_or(0);
         let max_size = value_sizes.iter().map(|(s, _)| *s).max().unwrap_or(0);
 
-        let avg_size: f64 = value_sizes.iter()
+        let avg_size: f64 = value_sizes
+            .iter()
             .map(|(size, count)| *size as f64 * *count as f64)
-            .sum::<f64>() / total_values.max(1) as f64;
+            .sum::<f64>()
+            / total_values.max(1) as f64;
 
         println!("Min: {} bytes", min_size);
         println!("Max: {} bytes", max_size);
         println!("Avg: {:.1} bytes", avg_size);
-        println!("Total with values: {} ({:.1}%)", total_values, (total_values as f64 / analysis.total_events as f64) * 100.0);
+        println!(
+            "Total with values: {} ({:.1}%)",
+            total_values,
+            (total_values as f64 / analysis.total_events as f64) * 100.0
+        );
 
         if value_sizes.len() <= 10 {
             println!("\nDistribution:");

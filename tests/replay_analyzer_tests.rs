@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use membench::profile::{CommandType, Event, Flags};
     use membench::replay::DistributionAnalyzer;
-    use membench::profile::{Event, CommandType, Flags};
 
     #[test]
     fn test_analyze_command_distribution() {
@@ -29,8 +29,14 @@ mod tests {
         let analysis = DistributionAnalyzer::analyze(&events);
 
         assert_eq!(analysis.total_events, 2);
-        assert_eq!(analysis.command_distribution.get(&CommandType::Get), Some(&1));
-        assert_eq!(analysis.command_distribution.get(&CommandType::Set), Some(&1));
+        assert_eq!(
+            analysis.command_distribution.get(&CommandType::Get),
+            Some(&1)
+        );
+        assert_eq!(
+            analysis.command_distribution.get(&CommandType::Set),
+            Some(&1)
+        );
     }
 
     #[test]
@@ -60,7 +66,10 @@ mod tests {
 
         // Test that we have the correct number of events
         assert_eq!(analysis.total_events, 2);
-        assert_eq!(analysis.command_distribution.get(&CommandType::Get), Some(&2));
+        assert_eq!(
+            analysis.command_distribution.get(&CommandType::Get),
+            Some(&2)
+        );
     }
 
     #[test]
@@ -89,10 +98,19 @@ mod tests {
         let analysis = DistributionAnalyzer::analyze(&events);
 
         // Key size distribution should have both 10 and 20
-        assert!(analysis.key_size_distribution.iter().any(|(size, count)| *size == 10 && *count == 1));
-        assert!(analysis.key_size_distribution.iter().any(|(size, count)| *size == 20 && *count == 1));
+        assert!(analysis
+            .key_size_distribution
+            .iter()
+            .any(|(size, count)| *size == 10 && *count == 1));
+        assert!(analysis
+            .key_size_distribution
+            .iter()
+            .any(|(size, count)| *size == 20 && *count == 1));
 
         // Value size distribution should have 50
-        assert!(analysis.value_size_distribution.iter().any(|(size, count)| *size == 50 && *count == 1));
+        assert!(analysis
+            .value_size_distribution
+            .iter()
+            .any(|(size, count)| *size == 50 && *count == 1));
     }
 }

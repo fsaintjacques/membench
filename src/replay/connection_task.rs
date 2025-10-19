@@ -1,10 +1,10 @@
-use anyhow::Result;
-use tokio::sync::mpsc;
-use crate::profile::Event;
 use super::client::ReplayClient;
 use super::ProtocolMode;
+use crate::profile::Event;
+use anyhow::Result;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 /// Spawns a single connection task that processes commands from a queue
 pub async fn spawn_connection_task(

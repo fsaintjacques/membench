@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
 use crate::profile::{CommandType, Flags};
+use anyhow::{anyhow, Result};
 
 pub struct ParsedCommand {
     pub cmd_type: CommandType,
@@ -16,7 +16,9 @@ impl MemcacheParser {
     }
 
     pub fn parse_command<'a>(&self, input: &'a [u8]) -> Result<(ParsedCommand, &'a [u8])> {
-        let line_end = input.iter().position(|&b| b == b'\n')
+        let line_end = input
+            .iter()
+            .position(|&b| b == b'\n')
             .ok_or(anyhow!("no newline"))?;
         let line = &input[..line_end - 1]; // exclude \r
         let rest = &input[line_end + 1..];
@@ -29,13 +31,13 @@ impl MemcacheParser {
         let cmd = std::str::from_utf8(parts[0])?.to_lowercase();
         let cmd_type = match cmd.as_str() {
             "get" => CommandType::Get,
-            "mg" => CommandType::Get,      // Meta protocol
+            "mg" => CommandType::Get, // Meta protocol
             "set" => CommandType::Set,
-            "ms" => CommandType::Set,      // Meta protocol
+            "ms" => CommandType::Set, // Meta protocol
             "delete" => CommandType::Delete,
-            "md" => CommandType::Delete,   // Meta protocol
+            "md" => CommandType::Delete, // Meta protocol
             "noop" => CommandType::Noop,
-            "mn" => CommandType::Noop,     // Meta protocol
+            "mn" => CommandType::Noop, // Meta protocol
             _ => return Err(anyhow!("unknown command: {}", cmd)),
         };
 
@@ -52,12 +54,14 @@ impl MemcacheParser {
             None
         };
 
-        Ok((ParsedCommand {
-            cmd_type,
-            key_range: key_start..key_end,
-            value_size,
-            flags: Flags::empty(),
-        }, rest))
+        Ok((
+            ParsedCommand {
+                cmd_type,
+                key_range: key_start..key_end,
+                value_size,
+                flags: Flags::empty(),
+            },
+            rest,
+        ))
     }
-
 }

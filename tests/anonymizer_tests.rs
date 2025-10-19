@@ -19,7 +19,10 @@ mod tests {
         let hash1 = anon.hash_key(b"key1");
         let hash2 = anon.hash_key(b"key2");
 
-        assert_ne!(hash1, hash2, "different keys should produce different hashes");
+        assert_ne!(
+            hash1, hash2,
+            "different keys should produce different hashes"
+        );
     }
 
     #[test]
@@ -30,6 +33,9 @@ mod tests {
         let hash1 = anon1.hash_key(b"testkey");
         let hash2 = anon2.hash_key(b"testkey");
 
-        assert_ne!(hash1, hash2, "different salts should produce different hashes");
+        assert_ne!(
+            hash1, hash2,
+            "different salts should produce different hashes"
+        );
     }
 }

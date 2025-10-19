@@ -1,12 +1,12 @@
 //! Record command implementation
 
 use anyhow::Result;
-use std::time::SystemTime;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::SystemTime;
 
-use crate::record::{PacketCapture, MemcacheParser, Anonymizer, ProfileWriter};
 use crate::profile::Event;
+use crate::record::{Anonymizer, MemcacheParser, PacketCapture, ProfileWriter};
 
 pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<()> {
     let salt = salt.unwrap_or_else(|| {
@@ -24,15 +24,28 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
     } else {
         "interface"
     };
-    tracing::info!("Recording from {} ({}):{} to {}", source_type, source, port, output);
+    tracing::info!(
+        "Recording from {} ({}):{} to {}",
+        source_type,
+        source,
+        port,
+        output
+    );
     tracing::debug!("Salt: {}", salt);
     tracing::info!("Capturing memcache traffic... Press Ctrl+C to stop.");
 
     if !capture.is_finite() {
-        tracing::debug!("Available devices: {:?}", PacketCapture::list_devices().unwrap_or_default());
+        tracing::debug!(
+            "Available devices: {:?}",
+            PacketCapture::list_devices().unwrap_or_default()
+        );
     }
 
-    tracing::debug!("Capture initialized from {}: {}", source_type, capture.source_info());
+    tracing::debug!(
+        "Capture initialized from {}: {}",
+        source_type,
+        capture.source_info()
+    );
     let parser = MemcacheParser::new();
     let anonymizer = Anonymizer::new(salt);
     let mut writer = ProfileWriter::new(output)?;
@@ -44,7 +57,8 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
     ctrlc::set_handler(move || {
         tracing::info!("Received Ctrl+C, shutting down gracefully...");
         should_exit_clone.store(true, Ordering::SeqCst);
-    }).expect("Error setting Ctrl+C handler");
+    })
+    .expect("Error setting Ctrl+C handler");
 
     // Track connection state
     let mut packet_count = 0u64;
@@ -71,9 +85,10 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
                 let payload = if let Some(pos) = packet_data.windows(2).position(|w| w == b"\r\n") {
                     // Found \r\n which suggests we're at or near application data
                     // Search backwards for command start (GET, SET, etc.)
-                    if let Some(cmd_start) = packet_data[..pos].windows(3).rposition(|w| {
-                        w == b"get" || w == b"set" || w == b"del" || w == b"noo"
-                    }) {
+                    if let Some(cmd_start) = packet_data[..pos]
+                        .windows(3)
+                        .rposition(|w| w == b"get" || w == b"set" || w == b"del" || w == b"noo")
+                    {
                         &packet_data[cmd_start..]
                     } else {
                         packet_data
@@ -97,7 +112,8 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
                                     timestamp: SystemTime::now()
                                         .duration_since(SystemTime::UNIX_EPOCH)
                                         .unwrap()
-                                        .as_micros() as u64,
+                                        .as_micros()
+                                        as u64,
                                     conn_id: (packet_count % 32) as u16, // Connection ID derived from packet count
                                     cmd_type: cmd.cmd_type,
                                     key_hash: anonymizer.hash_key(key_bytes), // Hash the actual key
@@ -110,7 +126,11 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
                                 event_count += 1;
 
                                 if packet_count % 1000 == 0 {
-                                    tracing::info!("Captured {} packets, {} events", packet_count, event_count);
+                                    tracing::info!(
+                                        "Captured {} packets, {} events",
+                                        packet_count,
+                                        event_count
+                                    );
                                 }
                             }
                             Err(e) => {
@@ -121,7 +141,13 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
                                     } else {
                                         data_preview.to_string()
                                     };
-                                    tracing::debug!("Parse error on packet {}: {} | Data (len={}): {:?}", packet_count, e, packet_data.len(), preview);
+                                    tracing::debug!(
+                                        "Parse error on packet {}: {} | Data (len={}): {:?}",
+                                        packet_count,
+                                        e,
+                                        packet_data.len(),
+                                        preview
+                                    );
                                 }
                             }
                         }

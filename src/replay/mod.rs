@@ -4,19 +4,19 @@ use std::fmt;
 
 pub mod analyzer;
 pub mod client;
-pub mod reader;
-pub mod main;
-pub mod streamer;
 pub mod connection_task;
+pub mod main;
+pub mod reader;
 pub mod reader_task;
+pub mod streamer;
 
-pub use analyzer::{DistributionAnalyzer, AnalysisResult};
+pub use analyzer::{AnalysisResult, DistributionAnalyzer};
 pub use client::ReplayClient;
-pub use reader::ProfileReader;
-pub use main::run as run_replay;
-pub use streamer::ProfileStreamer;
 pub use connection_task::spawn_connection_task;
+pub use main::run as run_replay;
+pub use reader::ProfileReader;
 pub use reader_task::{reader_task, LoopMode};
+pub use streamer::ProfileStreamer;
 
 /// Protocol mode for command generation during replay
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,7 +33,10 @@ impl ProtocolMode {
         match s.to_lowercase().as_str() {
             "ascii" => Ok(ProtocolMode::Ascii),
             "meta" => Ok(ProtocolMode::Meta),
-            _ => Err(format!("Invalid protocol mode: '{}'. Use 'ascii' or 'meta'", s)),
+            _ => Err(format!(
+                "Invalid protocol mode: '{}'. Use 'ascii' or 'meta'",
+                s
+            )),
         }
     }
 }

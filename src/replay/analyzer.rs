@@ -1,5 +1,5 @@
+use crate::profile::{CommandType, Event};
 use std::collections::HashMap;
-use crate::profile::{Event, CommandType};
 
 #[derive(Clone)]
 pub struct AnalysisResult {
@@ -29,12 +29,8 @@ impl DistributionAnalyzer {
         AnalysisResult {
             total_events: events.len() as u64,
             command_distribution: cmd_dist,
-            key_size_distribution: key_size_dist
-                .into_iter()
-                .collect::<Vec<_>>(),
-            value_size_distribution: value_size_dist
-                .into_iter()
-                .collect::<Vec<_>>(),
+            key_size_distribution: key_size_dist.into_iter().collect::<Vec<_>>(),
+            value_size_distribution: value_size_dist.into_iter().collect::<Vec<_>>(),
         }
     }
 }

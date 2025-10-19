@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use membench::record::run_record;
 use membench::analyze::run_analyze;
+use membench::record::run_record;
 use membench::replay::{run_replay, ProtocolMode};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -64,12 +64,17 @@ async fn main() {
 
     tracing_subscriber::fmt()
         .with_max_level(log_level)
-        .with_target(cli.verbose >= 2)  // Show module targets in debug+ mode
-        .with_level(true)                // Always show log level
+        .with_target(cli.verbose >= 2) // Show module targets in debug+ mode
+        .with_level(true) // Always show log level
         .init();
 
     match cli.command {
-        Commands::Record { source, output, port, salt } => {
+        Commands::Record {
+            source,
+            output,
+            port,
+            salt,
+        } => {
             if let Err(e) = run_record(&source, port, &output, salt) {
                 eprintln!("Record error: {}", e);
                 std::process::exit(1);
@@ -81,7 +86,12 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        Commands::Replay { file, target, loop_mode, protocol_mode } => {
+        Commands::Replay {
+            file,
+            target,
+            loop_mode,
+            protocol_mode,
+        } => {
             // Parse protocol mode at CLI boundary
             let protocol_mode = match ProtocolMode::from_str(&protocol_mode) {
                 Ok(mode) => mode,
@@ -97,11 +107,13 @@ async fn main() {
             let _ctrlc_handle = ctrlc::set_handler(move || {
                 eprintln!("\nShutdown signal received, completing current iteration...");
                 should_exit_clone.store(true, Ordering::Release);
-            }).map_err(|e| {
+            })
+            .map_err(|e| {
                 eprintln!("Failed to set signal handler: {}", e);
             });
 
-            if let Err(e) = run_replay(&file, &target, &loop_mode, protocol_mode, should_exit).await {
+            if let Err(e) = run_replay(&file, &target, &loop_mode, protocol_mode, should_exit).await
+            {
                 eprintln!("Replay error: {}", e);
                 std::process::exit(1);
             }
