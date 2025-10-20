@@ -2,8 +2,6 @@
 
 pub mod anonymizer;
 pub mod capture;
-#[cfg(feature = "ebpf")]
-pub mod ebpf;
 pub mod main;
 pub mod parser;
 pub mod writer;
