@@ -2,9 +2,6 @@ use anyhow::{Context, Result};
 use pcap::Capture;
 use std::path::Path;
 
-#[cfg(feature = "ebpf")]
-use crate::record::ebpf::EbpfCapture;
-
 /// Common interface for packet capture backends
 pub trait PacketSource {
     /// Read next packet from source
@@ -129,22 +126,9 @@ impl PacketCapture {
     }
 
     /// Create a packet capture from a source (interface or PCAP file)
-    /// Auto-detects the type by checking if source is a file or ebpf: prefix
+    /// Auto-detects the type by checking if source is a file
     pub fn from_source(source: &str, port: u16) -> Result<Self> {
-        let packet_source: Box<dyn PacketSource> = if source.starts_with("ebpf:") {
-            #[cfg(feature = "ebpf")]
-            {
-                let iface = source.strip_prefix("ebpf:").unwrap_or(source);
-                Box::new(EbpfCapture::new(iface, port)?)
-            }
-            #[cfg(not(feature = "ebpf"))]
-            {
-                return Err(anyhow::anyhow!(
-                    "eBPF capture requires --features ebpf, got: {}",
-                    source
-                ));
-            }
-        } else if Self::is_file(source) {
+        let packet_source: Box<dyn PacketSource> = if Self::is_file(source) {
             Box::new(FileCapture::new(source, port)?)
         } else {
             Box::new(LiveCapture::new(source, port)?)

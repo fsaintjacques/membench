@@ -17,9 +17,7 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
     });
 
     let mut capture = PacketCapture::from_source(source, port)?;
-    let source_type = if source.starts_with("ebpf:") {
-        "ebpf"
-    } else if capture.is_finite() {
+    let source_type = if capture.is_finite() {
         "file"
     } else {
         "interface"
