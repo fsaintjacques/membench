@@ -2,8 +2,12 @@
 
 use crate::record::capture::CaptureStats;
 use crate::record::capture::PacketSource;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use aya::include_bytes_aligned;
+use aya::maps::{Array, RingBuf as AyaRingBuf};
+use aya::programs::TracePoint;
 use aya::Ebpf;
+use std::sync::mpsc;
 
 /// Event structure matching kernel-side definition
 #[repr(C)]
@@ -18,58 +22,13 @@ struct SocketDataEvent {
 /// eBPF socket capture using tracepoints
 pub struct EbpfCapture {
     interface: String,
-    port: u16,
-    _bpf: Option<Ebpf>,           // Holds loaded eBPF program
-    packets_buffer: Vec<Vec<u8>>, // Buffered packets
+    _bpf: Option<Ebpf>,                  // Holds loaded eBPF program
+    rx: mpsc::Receiver<Vec<u8>>,         // Buffered channel receiver
+    current_packet: Option<Vec<u8>>,     // Current packet being processed
 }
 
 impl EbpfCapture {
-    /// Load and attach eBPF program for packet capture
-    ///
-    /// This creates a TC ingress hook on the specified interface
-    /// to filter and capture packets destined for port 11211.
-    ///
-    /// # Errors
-    /// Returns error if eBPF program cannot be loaded or attached.
-    /// Requires CAP_BPF and CAP_PERFMON capabilities (or CAP_SYS_ADMIN).
-    pub fn new(interface: &str, port: u16) -> Result<Self> {
-        check_ebpf_capabilities()?;
-
-        // TODO: Load eBPF program from embedded bytecode
-        // TODO: Attach to interface TC ingress
-        // TODO: Open perf buffer for reading
-
-        Ok(EbpfCapture {
-            interface: interface.to_string(),
-            port,
-            _bpf: None, // TODO: Load program
-            packets_buffer: Vec::new(),
-        })
-    }
-}
-
-impl PacketSource for EbpfCapture {
-    fn next_packet(&mut self) -> Result<&[u8]> {
-        // TODO: Read from perf buffer
-        // For now, return error to prevent infinite loop
-        Err(anyhow::anyhow!("eBPF packet reading not yet implemented"))
-    }
-
-    fn source_info(&self) -> &str {
-        &self.interface
-    }
-
-    fn is_finite(&self) -> bool {
-        false
-    }
-
-    fn stats(&mut self) -> Option<CaptureStats> {
-        None
-    }
-}
-
-impl EbpfCapture {
-    pub fn new(interface: &str, port: u16) -> Result<Self> {
+    pub fn new(interface: &str, _port: u16, target_pid: u32) -> Result<Self> {
         check_ebpf_capabilities()?;
 
         // Load eBPF bytecode
@@ -78,18 +37,35 @@ impl EbpfCapture {
             "/programs"
         )))?;
 
-        // Attach tracepoint to sys_enter_recvfrom
-        let program: &mut TracePoint = bpf
+        // Set target PID in BPF map
+        let mut pid_map: Array<_, u32> = bpf
+            .take_map("TARGET_PID")
+            .context("failed to get TARGET_PID map")?
+            .try_into()?;
+        pid_map.set(0, target_pid, 0)?;
+
+        tracing::info!("Set target PID filter to {}", target_pid);
+
+        // Attach tracepoints to both enter and exit
+        let enter_program: &mut TracePoint = bpf
             .program_mut("trace_recv_enter")
             .context("failed to find trace_recv_enter")?
             .try_into()?;
-        program.load()?;
-        program.attach("syscalls", "sys_enter_recvfrom")?;
+        enter_program.load()?;
+        enter_program.attach("syscalls", "sys_enter_recvfrom")?;
 
-        tracing::info!("Attached eBPF tracepoint to sys_enter_recvfrom");
+        let exit_program: &mut TracePoint = bpf
+            .program_mut("trace_recv_exit")
+            .context("failed to find trace_recv_exit")?
+            .try_into()?;
+        exit_program.load()?;
+        exit_program.attach("syscalls", "sys_exit_recvfrom")?;
 
-        // Create channel for packets
-        let (tx, rx) = mpsc::unbounded_channel();
+        tracing::info!("Attached eBPF tracepoints to sys_enter/exit_recvfrom");
+
+        // Create buffered channel for packets
+        // Buffer size 1000 prevents deadlock when async task sends faster than receiver processes
+        let (tx, rx) = mpsc::sync_channel(1000);
 
         // Spawn task to read from ringbuf
         let ringbuf: AyaRingBuf<_> = bpf
@@ -103,8 +79,7 @@ impl EbpfCapture {
 
         Ok(EbpfCapture {
             interface: interface.to_string(),
-            port,
-            _bpf: bpf,
+            _bpf: Some(bpf),
             rx,
             current_packet: None,
         })
@@ -114,20 +89,25 @@ impl EbpfCapture {
 /// Read events from ringbuf and send to channel
 async fn read_events(
     mut ringbuf: AyaRingBuf<aya::maps::MapData>,
-    tx: mpsc::UnboundedSender<Vec<u8>>,
+    tx: mpsc::SyncSender<Vec<u8>>,
 ) {
     loop {
         match ringbuf.next() {
             Some(event_data) => {
+                tracing::debug!("Received event from ringbuf, size: {}", event_data.len());
                 // Parse event
                 if event_data.len() >= std::mem::size_of::<SocketDataEvent>() {
                     let event = unsafe { &*(event_data.as_ptr() as *const SocketDataEvent) };
 
                     let data_len = event.data_len as usize;
+                    tracing::debug!("Event data_len: {}, sock_id: {}", data_len, event.sock_id);
                     if data_len > 0 && data_len <= event.data.len() {
                         let packet = event.data[..data_len].to_vec();
+                        tracing::debug!("Sending packet to channel: {} bytes", packet.len());
                         let _ = tx.send(packet);
                     }
+                } else {
+                    tracing::warn!("Event too small: {} bytes", event_data.len());
                 }
             }
             None => {
@@ -140,13 +120,17 @@ async fn read_events(
 
 impl PacketSource for EbpfCapture {
     fn next_packet(&mut self) -> Result<&[u8]> {
-        // Try to receive packet from channel (blocking)
-        match self.rx.blocking_recv() {
-            Some(packet) => {
+        // Receive packet with timeout to allow shutdown checks
+        match self.rx.recv_timeout(std::time::Duration::from_millis(100)) {
+            Ok(packet) => {
                 self.current_packet = Some(packet);
                 Ok(self.current_packet.as_ref().unwrap())
             }
-            None => Err(anyhow::anyhow!("eBPF capture channel closed")),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                // Timeout - return error to allow shutdown check
+                Err(anyhow::anyhow!("Timeout waiting for packet"))
+            }
+            Err(_) => Err(anyhow::anyhow!("eBPF capture channel closed")),
         }
     }
 

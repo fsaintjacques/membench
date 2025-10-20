@@ -205,13 +205,14 @@ mode intercepts socket recv() syscalls using kernel tracepoints. This provides:
 
 ### Building with eBPF
 
-```bash
-# Linux only
-cargo build --release --features ebpf
+The eBPF bytecode is **pre-compiled and committed** to the repository, so building is simple:
 
-# Requires bpfel toolchain for eBPF compilation
-rustup target add bpfel-unknown-none
+```bash
+# Build with eBPF support (works on any platform)
+cargo build --release --features ebpf
 ```
+
+**No special toolchain required!** The eBPF bytecode is architecture-independent and embedded in the binary.
 
 ### Using eBPF Capture
 
@@ -225,17 +226,14 @@ sudo membench record eth0 capture.bin
 
 ### Requirements
 
-- Linux kernel 5.8+ (runtime)
-- x86_64 architecture (for eBPF bytecode compilation)
+**For building:** Just Rust stable (the bytecode is pre-compiled)
+
+**For running:**
+- Linux kernel 5.8+
 - `CAP_BPF` and `CAP_PERFMON` capabilities (or `CAP_SYS_ADMIN`)
 - Usually requires `sudo`
-- Nightly Rust + bpfel-unknown-none target for building:
-  ```bash
-  rustup toolchain install nightly
-  rustup +nightly target add bpfel-unknown-none
-  ```
 
-**Note:** On ARM/other architectures, the code compiles with a stub (no runtime eBPF support). eBPF compilation requires x86_64.
+**For modifying eBPF code:** See [ebpf/README.md](ebpf/README.md) for rebuild instructions
 
 ### Performance
 

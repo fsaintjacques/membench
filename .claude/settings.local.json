@@ -25,7 +25,10 @@
       "Read(//home/vscode/.config/**)",
       "Bash(echo $HOME)",
       "Read(//home/vscode/.claude/plugins/cache/superpowers/**)",
-      "Bash(cargo clippy:*)"
+      "Bash(cargo clippy:*)",
+      "Bash(rustup target list --installed)",
+      "Bash(rustup target list)",
+      "Bash(rustup +nightly target list)"
     ],
     "deny": [],
     "ask": []

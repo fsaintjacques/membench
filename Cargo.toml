@@ -3,6 +3,10 @@ name = "membench"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+# Empty workspace to prevent auto-discovery of ebpf subdirectory
+members = []
+
 [features]
 default = []
 ebpf = ["aya"]

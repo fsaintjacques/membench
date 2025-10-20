@@ -3,6 +3,10 @@ name = "membench-ebpf"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+# This package is not part of the parent workspace
+# It's built separately by build.rs
+
 [dependencies]
 aya-ebpf = "0.1"
 aya-log-ebpf = "0.1"

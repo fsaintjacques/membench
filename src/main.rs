@@ -21,7 +21,7 @@ struct Cli {
 enum Commands {
     /// Capture memcache traffic from network interface or PCAP file
     Record {
-        /// Network interface (e.g., eth0, lo0) or PCAP file path to capture from
+        /// Network interface (e.g., eth0, lo0), PCAP file, or eBPF source (ebpf:interface)
         source: String,
         /// Output profile file path
         output: String,
@@ -29,6 +29,9 @@ enum Commands {
         port: u16,
         #[arg(short, long)]
         salt: Option<u64>,
+        /// Target PID to capture (required for eBPF mode, ignored otherwise)
+        #[arg(long)]
+        pid: Option<u32>,
     },
     /// Analyze a captured profile file
     Analyze {
@@ -74,8 +77,9 @@ async fn main() {
             output,
             port,
             salt,
+            pid,
         } => {
-            if let Err(e) = run_record(&source, port, &output, salt) {
+            if let Err(e) = run_record(&source, port, &output, salt, pid) {
                 eprintln!("Record error: {}", e);
                 std::process::exit(1);
             }

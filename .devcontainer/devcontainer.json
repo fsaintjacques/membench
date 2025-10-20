@@ -14,8 +14,6 @@
     "vscode": {
       "extensions": [
         "rust-lang.rust-analyzer",
-        "tamasfe.even-better-toml",
-        "serayuzgur.crates",
         "vadimcn.vscode-lldb",
         "anthropic.claude-code"
       ],
@@ -36,8 +34,7 @@
     }
   },
   "mounts": [
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume"
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
   ],
   "postCreateCommand": ".devcontainer/scripts/setup.sh",
   "runArgs": [

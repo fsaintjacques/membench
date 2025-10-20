@@ -8,7 +8,7 @@ use std::time::SystemTime;
 use crate::profile::Event;
 use crate::record::{Anonymizer, MemcacheParser, PacketCapture, ProfileWriter};
 
-pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<()> {
+pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>, pid: Option<u32>) -> Result<()> {
     let salt = salt.unwrap_or_else(|| {
         SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -16,7 +16,7 @@ pub fn run(source: &str, port: u16, output: &str, salt: Option<u64>) -> Result<(
             .as_secs()
     });
 
-    let mut capture = PacketCapture::from_source(source, port)?;
+    let mut capture = PacketCapture::from_source(source, port, pid)?;
     let source_type = if source.starts_with("ebpf:") {
         "ebpf"
     } else if capture.is_finite() {

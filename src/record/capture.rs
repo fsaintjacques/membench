@@ -130,12 +130,15 @@ impl PacketCapture {
 
     /// Create a packet capture from a source (interface or PCAP file)
     /// Auto-detects the type by checking if source is a file or ebpf: prefix
-    pub fn from_source(source: &str, port: u16) -> Result<Self> {
+    pub fn from_source(source: &str, port: u16, pid: Option<u32>) -> Result<Self> {
         let packet_source: Box<dyn PacketSource> = if source.starts_with("ebpf:") {
             #[cfg(feature = "ebpf")]
             {
                 let iface = source.strip_prefix("ebpf:").unwrap_or(source);
-                Box::new(EbpfCapture::new(iface, port)?)
+                let target_pid = pid.ok_or_else(|| {
+                    anyhow::anyhow!("--pid is required for eBPF capture mode")
+                })?;
+                Box::new(EbpfCapture::new(iface, port, target_pid)?)
             }
             #[cfg(not(feature = "ebpf"))]
             {
@@ -157,7 +160,7 @@ impl PacketCapture {
 
     /// Legacy method for backwards compatibility
     pub fn new(interface: &str, port: u16) -> Result<Self> {
-        Self::from_source(interface, port)
+        Self::from_source(interface, port, None)
     }
 
     pub fn list_devices() -> Result<Vec<String>> {

@@ -48,3 +48,4 @@ rustc --version
 cargo --version
 
 sudo chown -R vscode:vscode /workspaces 2>/dev/null || true
+sudo chown -R vscode:vscode /home/vscode/.claude 2>/dev/null || true

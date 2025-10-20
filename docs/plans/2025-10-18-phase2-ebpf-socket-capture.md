@@ -1,5 +1,7 @@
 # Phase 2 (Revised): Socket-Level eBPF Capture Implementation Plan
 
+> **IMPLEMENTATION NOTE (2025-10-19):** This plan was successfully implemented with a simplified build approach. Instead of compiling eBPF bytecode during every build (which requires nightly toolchain + bpf-linker), the pre-compiled bytecode is committed to `ebpf/programs.bpf` and embedded at build time. See `ebpf/README.md` for rebuild instructions. This eliminates all special toolchain requirements for normal builds while keeping the eBPF code easily modifiable.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace fragile packet-based capture with robust socket-level eBPF that intercepts already-reassembled TCP streams from memcached connections.
