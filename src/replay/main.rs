@@ -2,13 +2,15 @@
 
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::mpsc;
 
-use crate::profile::Event;
-use crate::replay::{reader_task, spawn_connection_task, LoopMode, ProfileReader, ProtocolMode};
+use crate::profile::{CommandType, Event};
+use crate::replay::{
+    reader_task, spawn_connection_task, spawn_stats_aggregator, stats::StatsSnapshot, LoopMode,
+    ProfileReader, ProtocolMode,
+};
 
 pub async fn run(
     input: &str,
@@ -48,21 +50,28 @@ pub async fn run(
     let unique_connections: Vec<u16> = unique_connections.into_iter().collect();
     tracing::info!("Found {} unique connections", unique_connections.len());
 
+    // Phase 1.5: Create stats aggregator
+    let (stats_tx, stats_rx) = mpsc::channel::<StatsSnapshot>(1000);
+    let stats_handle = spawn_stats_aggregator(stats_rx, Arc::clone(&should_exit)).await;
+
     // Phase 2: Create SPSC queues for each connection
     let mut connection_queues: HashMap<u16, mpsc::Sender<Event>> = HashMap::new();
     let mut connection_tasks = Vec::new();
-    let sent_counter = Arc::new(AtomicU64::new(0));
 
     for &conn_id in &unique_connections {
         let (tx, rx) = mpsc::channel(1000); // Buffer size: 1000 events
         connection_queues.insert(conn_id, tx);
 
-        let counter_clone = Arc::clone(&sent_counter);
         let target = target.to_string();
+        let stats_tx_clone = stats_tx.clone();
 
-        let task_handle = spawn_connection_task(&target, rx, counter_clone, protocol_mode).await?;
+        let task_handle =
+            spawn_connection_task(&target, rx, stats_tx_clone, conn_id, protocol_mode).await?;
         connection_tasks.push(task_handle);
     }
+
+    // Drop our copy of stats_tx so aggregator can finish
+    drop(stats_tx);
 
     // Phase 3: Spawn reader task
     let reader_task_handle = {
@@ -80,51 +89,47 @@ pub async fn run(
         })
     };
 
-    // Phase 4: Spawn reporting task
-    let _reporting_handle = {
-        let counter_clone = Arc::clone(&sent_counter);
-        let should_exit_clone = Arc::clone(&should_exit);
-
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-            let start = Instant::now();
-
-            loop {
-                interval.tick().await;
-
-                let sent = counter_clone.load(Ordering::Relaxed);
-                let elapsed = start.elapsed().as_secs_f64();
-                let throughput = if elapsed > 0.0 {
-                    sent as f64 / elapsed
-                } else {
-                    0.0
-                };
-
-                tracing::info!(
-                    "[{:.0}s] Sent: {} | Throughput: {:.0} ops/sec",
-                    elapsed,
-                    sent,
-                    throughput
-                );
-
-                if should_exit_clone.load(Ordering::Relaxed) {
-                    break;
-                }
-            }
-        })
-    };
-
-    // Phase 5: Wait for reader task to complete (signals that all events processed)
+    // Phase 4: Wait for reader task to complete (signals that all events processed)
     reader_task_handle.await??;
 
-    // Phase 6: Wait for all connection tasks to drain queues and finish
+    // Phase 5: Wait for all connection tasks to drain queues and finish
     for task in connection_tasks {
         task.await??;
     }
 
-    // Final stats
-    let final_sent = sent_counter.load(Ordering::Relaxed);
-    tracing::info!("Replay complete. Total sent: {}", final_sent);
+    // Phase 6: Signal stats aggregator and get final results
+    should_exit.store(true, Ordering::Relaxed);
+    let final_stats = stats_handle.await?;
+
+    // Final summary
+    print_final_summary(&final_stats);
 
     Ok(())
+}
+
+fn print_final_summary(stats: &crate::replay::stats::AggregatedStats) {
+    tracing::info!("=== Replay Complete ===");
+    tracing::info!("Elapsed: {:.2}s", stats.elapsed_secs());
+    tracing::info!("Total Operations: {}", stats.total_operations());
+    tracing::info!("Throughput: {:.2} ops/sec", stats.throughput());
+
+    for cmd_type in [
+        CommandType::Get,
+        CommandType::Set,
+        CommandType::Delete,
+        CommandType::Noop,
+    ] {
+        if let Some(p50) = stats.percentile(cmd_type, 50.0) {
+            let p95 = stats.percentile(cmd_type, 95.0).unwrap_or(0);
+            let p99 = stats.percentile(cmd_type, 99.0).unwrap_or(0);
+
+            tracing::info!(
+                "{:?} latency (μs) - p50: {}, p95: {}, p99: {}",
+                cmd_type,
+                p50,
+                p95,
+                p99
+            );
+        }
+    }
 }
