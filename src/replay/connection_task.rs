@@ -26,16 +26,13 @@ pub async fn spawn_connection_task(
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
 
         loop {
-            // Check exit flag before processing
-            if should_exit.load(Ordering::Relaxed) {
-                // Send final snapshot before exiting
-                let snapshot = local_stats.snapshot();
-                let _ = stats_tx.send(snapshot).await;
-                break;
-            }
-
             tokio::select! {
                 Some(event) = rx.recv() => {
+                    // Check exit flag when we have work to do
+                    if should_exit.load(Ordering::Relaxed) {
+                        break;
+                    }
+
                     let start = Instant::now();
 
                     if let Err(e) = client.send_command(&event).await {
@@ -52,13 +49,23 @@ pub async fn spawn_connection_task(
                     local_stats.record_success(event.cmd_type, latency);
                 }
                 _ = interval.tick() => {
+                    // Check exit flag on timer tick
+                    if should_exit.load(Ordering::Relaxed) {
+                        break;
+                    }
+
                     // Send snapshot every 2 seconds
                     let snapshot = local_stats.snapshot();
                     if stats_tx.send(snapshot).await.is_err() {
                         break; // Receiver dropped
                     }
                 }
-                else => break,
+                else => {
+                    // Channel closed, send final snapshot
+                    let snapshot = local_stats.snapshot();
+                    let _ = stats_tx.send(snapshot).await;
+                    break;
+                }
             }
         }
 

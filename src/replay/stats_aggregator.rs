@@ -12,17 +12,17 @@ pub async fn spawn_stats_aggregator(
         let mut report_interval = tokio::time::interval(std::time::Duration::from_secs(5));
 
         loop {
-            // Check exit flag before each select
-            if should_exit.load(Ordering::Relaxed) {
-                tracing::info!("Stats aggregator exiting due to signal");
-                break;
-            }
-
             tokio::select! {
                 Some(snapshot) = rx.recv() => {
                     agg_stats.merge(snapshot);
                 }
                 _ = report_interval.tick() => {
+                    // Check exit flag on timer tick
+                    if should_exit.load(Ordering::Relaxed) {
+                        tracing::info!("Stats aggregator exiting due to signal");
+                        break;
+                    }
+
                     // Live progress report
                     let elapsed = agg_stats.elapsed_secs();
                     let total_ops = agg_stats.total_operations();
@@ -36,7 +36,7 @@ pub async fn spawn_stats_aggregator(
                     );
                 }
                 else => {
-                    // Channel closed, exit
+                    // Channel closed, exit normally
                     break;
                 }
             }
