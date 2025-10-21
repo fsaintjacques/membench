@@ -18,6 +18,7 @@ pub async fn run(
     loop_mode: &str,
     protocol_mode: ProtocolMode,
     should_exit: Arc<AtomicBool>,
+    stats_json: Option<&str>,
 ) -> Result<()> {
     tracing::info!(
         "Starting replay: input={}, target={}, mode={}, protocol={}",
@@ -103,6 +104,13 @@ pub async fn run(
 
     // Final summary
     print_final_summary(&final_stats);
+
+    // Export JSON if requested
+    if let Some(json_path) = stats_json {
+        let json = final_stats.to_json()?;
+        std::fs::write(json_path, json)?;
+        tracing::info!("Statistics exported to {}", json_path);
+    }
 
     Ok(())
 }
