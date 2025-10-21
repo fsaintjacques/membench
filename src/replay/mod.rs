@@ -9,6 +9,7 @@ pub mod connection_task;
 pub mod main;
 pub mod reader;
 pub mod reader_task;
+pub mod stats;
 pub mod streamer;
 
 pub use analyzer::{AnalysisResult, DistributionAnalyzer};
