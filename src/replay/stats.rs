@@ -10,6 +10,14 @@ pub enum ErrorType {
     ProtocolError,
 }
 
+#[derive(Debug, Clone)]
+pub struct StatsSnapshot {
+    pub connection_id: u16,
+    pub histograms: HashMap<CommandType, Histogram<u64>>,
+    pub success_counts: HashMap<CommandType, u64>,
+    pub error_counts: HashMap<ErrorType, u64>,
+}
+
 pub struct ConnectionStats {
     pub connection_id: u16,
 
@@ -57,6 +65,23 @@ impl ConnectionStats {
     pub fn get_error_count(&self) -> u64 {
         self.error_counts.values().sum()
     }
+
+    /// Take a snapshot and reset counters (delta reporting)
+    pub fn snapshot(&mut self) -> StatsSnapshot {
+        let snapshot = StatsSnapshot {
+            connection_id: self.connection_id,
+            histograms: self.histograms.clone(),
+            success_counts: self.success_counts.clone(),
+            error_counts: self.error_counts.clone(),
+        };
+
+        // Reset for next interval
+        self.histograms.clear();
+        self.success_counts.clear();
+        self.error_counts.clear();
+
+        snapshot
+    }
 }
 
 #[cfg(test)]
@@ -86,5 +111,24 @@ mod tests {
         stats.record_error(CommandType::Set, ErrorType::Timeout);
 
         assert_eq!(stats.get_error_count(), 1);
+    }
+
+    #[test]
+    fn test_snapshot_creation() {
+        let mut stats = ConnectionStats::new(1);
+        stats.record_success(CommandType::Get, Duration::from_micros(100));
+        stats.record_success(CommandType::Set, Duration::from_micros(200));
+
+        let snapshot = stats.snapshot();
+        assert_eq!(snapshot.connection_id, 1);
+    }
+
+    #[test]
+    fn test_snapshot_reset() {
+        let mut stats = ConnectionStats::new(1);
+        stats.record_success(CommandType::Get, Duration::from_micros(100));
+
+        let _snapshot = stats.snapshot();
+        assert_eq!(stats.get_count(), 0); // Should be reset after snapshot
     }
 }
