@@ -116,7 +116,15 @@ async fn main() {
                 eprintln!("Failed to set signal handler: {}", e);
             });
 
-            if let Err(e) = run_replay(&file, &target, &loop_mode, protocol_mode, should_exit, stats_json.as_deref()).await
+            if let Err(e) = run_replay(
+                &file,
+                &target,
+                &loop_mode,
+                protocol_mode,
+                should_exit,
+                stats_json.as_deref(),
+            )
+            .await
             {
                 eprintln!("Replay error: {}", e);
                 std::process::exit(1);

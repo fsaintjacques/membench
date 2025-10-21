@@ -46,7 +46,8 @@ impl ConnectionStats {
         let micros = latency.as_micros() as u64;
 
         // Update histogram
-        let histogram = self.histograms
+        let histogram = self
+            .histograms
             .entry(cmd_type)
             .or_insert_with(|| Histogram::new(3).expect("Failed to create histogram"));
         histogram.record(micros).ok();
@@ -135,7 +136,8 @@ impl AggregatedStats {
     pub fn merge(&mut self, snapshot: StatsSnapshot) {
         // Merge histograms
         for (cmd_type, hist) in snapshot.histograms {
-            let agg_hist = self.histograms
+            let agg_hist = self
+                .histograms
                 .entry(cmd_type)
                 .or_insert_with(|| Histogram::new(3).expect("Failed to create histogram"));
             agg_hist.add(&hist).ok();

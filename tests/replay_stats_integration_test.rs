@@ -1,5 +1,5 @@
 use membench::profile::CommandType;
-use membench::replay::stats::{ConnectionStats, AggregatedStats};
+use membench::replay::stats::{AggregatedStats, ConnectionStats};
 use std::time::Duration;
 
 #[test]
