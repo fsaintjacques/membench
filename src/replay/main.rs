@@ -65,9 +65,17 @@ pub async fn run(
 
         let target = target.to_string();
         let stats_tx_clone = stats_tx.clone();
+        let should_exit_clone = Arc::clone(&should_exit);
 
-        let task_handle =
-            spawn_connection_task(&target, rx, stats_tx_clone, conn_id, protocol_mode).await?;
+        let task_handle = spawn_connection_task(
+            &target,
+            rx,
+            stats_tx_clone,
+            conn_id,
+            protocol_mode,
+            should_exit_clone,
+        )
+        .await?;
         connection_tasks.push(task_handle);
     }
 

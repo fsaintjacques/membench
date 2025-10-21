@@ -3,6 +3,8 @@ use super::stats::{ConnectionStats, StatsSnapshot};
 use super::ProtocolMode;
 use crate::profile::Event;
 use anyhow::Result;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
@@ -13,6 +15,7 @@ pub async fn spawn_connection_task(
     stats_tx: mpsc::Sender<StatsSnapshot>,
     connection_id: u16,
     protocol_mode: ProtocolMode,
+    should_exit: Arc<AtomicBool>,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
     let target = target.to_string();
 
@@ -23,6 +26,14 @@ pub async fn spawn_connection_task(
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
 
         loop {
+            // Check exit flag before processing
+            if should_exit.load(Ordering::Relaxed) {
+                // Send final snapshot before exiting
+                let snapshot = local_stats.snapshot();
+                let _ = stats_tx.send(snapshot).await;
+                break;
+            }
+
             tokio::select! {
                 Some(event) = rx.recv() => {
                     let start = Instant::now();
