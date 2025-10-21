@@ -1,9 +1,10 @@
 use crate::profile::CommandType;
 use hdrhistogram::Histogram;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ErrorType {
     Timeout,
     ConnectionError,
@@ -84,6 +85,25 @@ impl ConnectionStats {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct JsonStats {
+    pub elapsed_secs: f64,
+    pub total_operations: u64,
+    pub throughput: f64,
+    pub operations: HashMap<String, OperationStats>,
+    pub errors: HashMap<String, u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OperationStats {
+    pub count: u64,
+    pub p50_micros: u64,
+    pub p95_micros: u64,
+    pub p99_micros: u64,
+    pub min_micros: u64,
+    pub max_micros: u64,
+}
+
 pub struct AggregatedStats {
     // Merged histograms per operation type
     histograms: HashMap<CommandType, Histogram<u64>>,
@@ -94,6 +114,12 @@ pub struct AggregatedStats {
 
     // Timing
     start_time: std::time::Instant,
+}
+
+impl Default for AggregatedStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AggregatedStats {
@@ -147,6 +173,38 @@ impl AggregatedStats {
         } else {
             0.0
         }
+    }
+
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        let mut operations = HashMap::new();
+
+        for (cmd_type, hist) in &self.histograms {
+            let count = self.success_counts.get(cmd_type).copied().unwrap_or(0);
+            let op_stats = OperationStats {
+                count,
+                p50_micros: hist.value_at_percentile(50.0),
+                p95_micros: hist.value_at_percentile(95.0),
+                p99_micros: hist.value_at_percentile(99.0),
+                min_micros: hist.min(),
+                max_micros: hist.max(),
+            };
+            operations.insert(format!("{:?}", cmd_type), op_stats);
+        }
+
+        let mut errors = HashMap::new();
+        for (error_type, count) in &self.error_counts {
+            errors.insert(format!("{:?}", error_type), *count);
+        }
+
+        let json_stats = JsonStats {
+            elapsed_secs: self.elapsed_secs(),
+            total_operations: self.total_operations(),
+            throughput: self.throughput(),
+            operations,
+            errors,
+        };
+
+        serde_json::to_string_pretty(&json_stats)
     }
 }
 
@@ -227,5 +285,20 @@ mod tests {
 
         let p50 = agg.percentile(CommandType::Get, 50.0);
         assert!(p50.is_some());
+    }
+
+    #[test]
+    fn test_json_export() {
+        let mut agg = AggregatedStats::new();
+
+        let mut stats = ConnectionStats::new(1);
+        stats.record_success(CommandType::Get, Duration::from_micros(100));
+        stats.record_success(CommandType::Set, Duration::from_micros(200));
+
+        agg.merge(stats.snapshot());
+
+        let json = agg.to_json().expect("Failed to serialize");
+        assert!(json.contains("\"Get\""));
+        assert!(json.contains("\"Set\""));
     }
 }
