@@ -47,6 +47,9 @@ enum Commands {
         /// Protocol mode: ascii (old) or meta (new)
         #[arg(long, default_value = "meta")]
         protocol_mode: String,
+        /// Export statistics to JSON file
+        #[arg(long, value_name = "FILE")]
+        stats_json: Option<String>,
     },
 }
 
@@ -91,6 +94,7 @@ async fn main() {
             target,
             loop_mode,
             protocol_mode,
+            stats_json,
         } => {
             // Parse protocol mode at CLI boundary
             let protocol_mode = match protocol_mode.parse::<ProtocolMode>() {
@@ -112,7 +116,15 @@ async fn main() {
                 eprintln!("Failed to set signal handler: {}", e);
             });
 
-            if let Err(e) = run_replay(&file, &target, &loop_mode, protocol_mode, should_exit).await
+            if let Err(e) = run_replay(
+                &file,
+                &target,
+                &loop_mode,
+                protocol_mode,
+                should_exit,
+                stats_json.as_deref(),
+            )
+            .await
             {
                 eprintln!("Replay error: {}", e);
                 std::process::exit(1);

@@ -9,6 +9,8 @@ pub mod connection_task;
 pub mod main;
 pub mod reader;
 pub mod reader_task;
+pub mod stats;
+mod stats_aggregator;
 pub mod streamer;
 
 pub use analyzer::{AnalysisResult, DistributionAnalyzer};
@@ -17,6 +19,7 @@ pub use connection_task::spawn_connection_task;
 pub use main::run as run_replay;
 pub use reader::ProfileReader;
 pub use reader_task::{reader_task, LoopMode};
+pub use stats_aggregator::spawn_stats_aggregator;
 pub use streamer::ProfileStreamer;
 
 /// Protocol mode for command generation during replay

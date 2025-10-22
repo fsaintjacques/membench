@@ -13,6 +13,10 @@ pub struct ReplayClient {
 impl ReplayClient {
     pub async fn new(target: &str, protocol_mode: ProtocolMode) -> Result<Self> {
         let stream = TcpStream::connect(target).await?;
+
+        // Disable Nagle's algorithm for low-latency communication
+        stream.set_nodelay(true)?;
+
         Ok(ReplayClient {
             stream,
             buffer: vec![0u8; 65536],
@@ -23,6 +27,8 @@ impl ReplayClient {
     pub async fn send_command(&mut self, event: &Event) -> Result<()> {
         let cmd = self.build_command_string(event);
         self.stream.write_all(cmd.as_bytes()).await?;
+        // Flush to ensure immediate send
+        self.stream.flush().await?;
         Ok(())
     }
 

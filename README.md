@@ -127,6 +127,74 @@ membench replay production.profile --loop-mode times:10
 membench replay test.profile --target 192.168.1.10:11211
 ```
 
+### Replay Statistics
+
+The replay command provides comprehensive performance analytics similar to memtier_benchmark:
+
+- **Latency Percentiles**: p50, p95, p99 for each operation type (Get, Set, Delete)
+- **Throughput**: Operations per second
+- **Error Tracking**: Timeouts, connection errors, protocol errors
+- **Per-Operation Breakdown**: Separate statistics for each command type
+
+#### Live Progress
+
+During replay, statistics are reported every 5 seconds:
+
+```bash
+[5s] Operations: 15000 | Throughput: 3000 ops/sec
+[10s] Operations: 32000 | Throughput: 3200 ops/sec
+```
+
+#### Final Summary
+
+When replay completes, a detailed summary is printed:
+
+```bash
+=== Replay Complete ===
+Elapsed: 60.23s
+Total Operations: 180000
+Throughput: 2989.21 ops/sec
+Get latency (μs) - p50: 245, p95: 512, p99: 1024
+Set latency (μs) - p50: 198, p95: 445, p99: 892
+```
+
+#### JSON Export
+
+Export detailed statistics to JSON for further analysis:
+
+```bash
+membench replay profile.bin --stats-json stats.json
+```
+
+Example JSON output:
+
+```json
+{
+  "elapsed_secs": 60.23,
+  "total_operations": 180000,
+  "throughput": 2989.21,
+  "operations": {
+    "Get": {
+      "count": 120000,
+      "p50_micros": 245,
+      "p95_micros": 512,
+      "p99_micros": 1024,
+      "min_micros": 89,
+      "max_micros": 2456
+    },
+    "Set": {
+      "count": 60000,
+      "p50_micros": 198,
+      "p95_micros": 445,
+      "p99_micros": 892,
+      "min_micros": 76,
+      "max_micros": 1823
+    }
+  },
+  "errors": {}
+}
+```
+
 ### Profile Inspection
 
 View statistics and metadata from a profile without replaying.

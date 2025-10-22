@@ -14,10 +14,9 @@ pub async fn reader_task(
     profile_path: &str,
     connection_queues: HashMap<u16, mpsc::Sender<Event>>,
     loop_mode: LoopMode,
-    should_exit: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    cancel_token: tokio_util::sync::CancellationToken,
 ) -> Result<()> {
     use super::streamer::ProfileStreamer;
-    use std::sync::atomic::Ordering;
 
     let mut streamer = ProfileStreamer::new(profile_path)?;
 
@@ -27,31 +26,55 @@ pub async fn reader_task(
         LoopMode::Infinite => usize::MAX,
     };
 
+    // Ensure queues are always closed on exit using a guard
+    struct QueueGuard(Option<HashMap<u16, mpsc::Sender<Event>>>);
+    impl Drop for QueueGuard {
+        fn drop(&mut self) {
+            if let Some(queues) = self.0.take() {
+                tracing::debug!("Closing {} connection queues", queues.len());
+                drop(queues);
+            }
+        }
+    }
+    let guard = QueueGuard(Some(connection_queues));
+    let connection_queues = guard.0.as_ref().unwrap();
+
     for iteration in 0..loop_count {
-        if should_exit.load(Ordering::Relaxed) {
-            tracing::info!("Reader task exiting due to signal");
+        if cancel_token.is_cancelled() {
+            tracing::info!("Reader task cancelled");
             break;
         }
 
         tracing::debug!("Reader task iteration {}", iteration);
 
         loop {
+            // Check cancellation before processing next event
+            if cancel_token.is_cancelled() {
+                tracing::info!("Reader task cancelled during event processing");
+                break;
+            }
+
+            // Read next event synchronously
             match streamer.next_event()? {
                 Some(event) => {
                     let conn_id = event.conn_id;
 
                     if let Some(tx) = connection_queues.get(&conn_id) {
-                        if tx.send(event).await.is_err() {
-                            tracing::warn!("Connection {} task closed unexpectedly", conn_id);
-                            break;
+                        // Send event to connection queue with cancellation awareness
+                        tokio::select! {
+                            _ = cancel_token.cancelled() => {
+                                tracing::info!("Reader task cancelled during send");
+                                break;
+                            }
+                            result = tx.send(event) => {
+                                if result.is_err() {
+                                    tracing::warn!("Connection {} task closed unexpectedly", conn_id);
+                                    break;
+                                }
+                            }
                         }
                     } else {
                         tracing::warn!("Unknown connection ID: {}", conn_id);
-                    }
-
-                    if should_exit.load(Ordering::Relaxed) {
-                        tracing::info!("Reader task exiting due to signal");
-                        return Ok(());
                     }
                 }
                 None => {
@@ -61,7 +84,6 @@ pub async fn reader_task(
                         streamer.reset()?;
                     } else {
                         tracing::info!("All replay iterations complete");
-                        return Ok(());
                     }
                     break;
                 }
@@ -69,8 +91,6 @@ pub async fn reader_task(
         }
     }
 
-    // Close all queues to signal connection tasks to exit
-    drop(connection_queues);
-
+    // Guard will automatically drop queues when function exits
     Ok(())
 }
