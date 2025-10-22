@@ -1,11 +1,9 @@
 use super::stats::{AggregatedStats, StatsSnapshot};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use tokio::sync::mpsc;
 
 pub async fn spawn_stats_aggregator(
     mut rx: mpsc::Receiver<StatsSnapshot>,
-    should_exit: Arc<AtomicBool>,
+    cancel_token: tokio_util::sync::CancellationToken,
 ) -> tokio::task::JoinHandle<AggregatedStats> {
     tokio::spawn(async move {
         let mut agg_stats = AggregatedStats::new();
@@ -13,20 +11,31 @@ pub async fn spawn_stats_aggregator(
 
         loop {
             tokio::select! {
-                Some(snapshot) = rx.recv() => {
-                    agg_stats.merge(snapshot);
+                _ = cancel_token.cancelled() => {
+                    tracing::info!("Stats aggregator cancelled");
+                    break;
+                }
+                snapshot_opt = rx.recv() => {
+                    match snapshot_opt {
+                        Some(snapshot) => {
+                            agg_stats.merge(snapshot);
+                        }
+                        None => {
+                            tracing::info!("Stats aggregator receiver closed");
+                            break;
+                        }
+                    }
                 }
                 _ = report_interval.tick() => {
-                    // Check exit flag on timer tick
-                    if should_exit.load(Ordering::Relaxed) {
-                        tracing::info!("Stats aggregator exiting due to signal");
-                        break;
-                    }
-
                     // Live progress report
                     let elapsed = agg_stats.elapsed_secs();
                     let total_ops = agg_stats.total_operations();
                     let throughput = agg_stats.throughput();
+
+                    // Skip the first report if interval not reached
+                    if elapsed < report_interval.period().as_secs_f64() {
+                        continue;
+                    }
 
                     tracing::info!(
                         "[{:.0}s] Operations: {} | Throughput: {:.0} ops/sec",
@@ -34,10 +43,6 @@ pub async fn spawn_stats_aggregator(
                         total_ops,
                         throughput
                     );
-                }
-                else => {
-                    // Channel closed, exit normally
-                    break;
                 }
             }
         }

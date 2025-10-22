@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 use crate::profile::{CommandType, Event};
 use crate::replay::{
@@ -27,6 +28,22 @@ pub async fn run(
         loop_mode,
         protocol_mode
     );
+
+    // Create cancellation token for coordinated shutdown
+    let cancel_token = CancellationToken::new();
+
+    // Spawn signal handler to trigger cancellation on Ctrl+C
+    let cancel_token_for_signal = cancel_token.clone();
+    tokio::spawn(async move {
+        loop {
+            if should_exit.load(Ordering::Relaxed) {
+                tracing::info!("External exit signal received, cancelling all tasks");
+                cancel_token_for_signal.cancel();
+                break;
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+    });
 
     // Parse loop mode
     let loop_mode = match loop_mode {
@@ -53,7 +70,7 @@ pub async fn run(
 
     // Phase 1.5: Create stats aggregator
     let (stats_tx, stats_rx) = mpsc::channel::<StatsSnapshot>(1000);
-    let stats_handle = spawn_stats_aggregator(stats_rx, Arc::clone(&should_exit)).await;
+    let stats_handle = spawn_stats_aggregator(stats_rx, cancel_token.clone()).await;
 
     // Phase 2: Create SPSC queues for each connection
     let mut connection_queues: HashMap<u16, mpsc::Sender<Event>> = HashMap::new();
@@ -65,7 +82,6 @@ pub async fn run(
 
         let target = target.to_string();
         let stats_tx_clone = stats_tx.clone();
-        let should_exit_clone = Arc::clone(&should_exit);
 
         let task_handle = spawn_connection_task(
             &target,
@@ -73,26 +89,26 @@ pub async fn run(
             stats_tx_clone,
             conn_id,
             protocol_mode,
-            should_exit_clone,
+            cancel_token.clone(),
         )
         .await?;
         connection_tasks.push(task_handle);
     }
 
-    // Drop our copy of stats_tx so aggregator can finish
+    // Drop our copy of stats_tx so aggregator can finish when all connections close
     drop(stats_tx);
 
     // Phase 3: Spawn reader task
     let reader_task_handle = {
         let input_clone = input.to_string();
-        let should_exit_clone = Arc::clone(&should_exit);
+        let cancel_token_clone = cancel_token.clone();
 
         tokio::spawn(async move {
             reader_task(
                 &input_clone,
                 connection_queues,
                 loop_mode,
-                should_exit_clone,
+                cancel_token_clone,
             )
             .await
         })
@@ -100,14 +116,16 @@ pub async fn run(
 
     // Phase 4: Wait for reader task to complete (signals that all events processed)
     reader_task_handle.await??;
+    tracing::info!("Reader task completed");
 
     // Phase 5: Wait for all connection tasks to drain queues and finish
-    for task in connection_tasks {
+    for (idx, task) in connection_tasks.into_iter().enumerate() {
         task.await??;
+        tracing::debug!("Connection task {} completed", idx);
     }
+    tracing::info!("All connection tasks completed");
 
-    // Phase 6: Signal stats aggregator and get final results
-    should_exit.store(true, Ordering::Relaxed);
+    // Phase 6: Cancel stats aggregator and get final results
     let final_stats = stats_handle.await?;
 
     // Final summary

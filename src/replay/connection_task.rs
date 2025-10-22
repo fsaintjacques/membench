@@ -3,8 +3,6 @@ use super::stats::{ConnectionStats, StatsSnapshot};
 use super::ProtocolMode;
 use crate::profile::Event;
 use anyhow::Result;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
@@ -15,7 +13,7 @@ pub async fn spawn_connection_task(
     stats_tx: mpsc::Sender<StatsSnapshot>,
     connection_id: u16,
     protocol_mode: ProtocolMode,
-    should_exit: Arc<AtomicBool>,
+    cancel_token: tokio_util::sync::CancellationToken,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
     let target = target.to_string();
 
@@ -27,48 +25,45 @@ pub async fn spawn_connection_task(
 
         loop {
             tokio::select! {
-                Some(event) = rx.recv() => {
-                    // Check exit flag when we have work to do
-                    if should_exit.load(Ordering::Relaxed) {
-                        break;
+                _ = cancel_token.cancelled() => {
+                    tracing::debug!("Connection {} cancelled", connection_id);
+                    break;
+                }
+                event_opt = rx.recv() => {
+                    match event_opt {
+                        Some(event) => {
+                            let start = Instant::now();
+
+                            if let Err(e) = client.send_command(&event).await {
+                                local_stats.record_error(event.cmd_type, super::stats::ErrorType::ConnectionError);
+                                return Err(e);
+                            }
+
+                            if let Err(e) = client.read_response().await {
+                                local_stats.record_error(event.cmd_type, super::stats::ErrorType::ProtocolError);
+                                return Err(e);
+                            }
+
+                            let latency = start.elapsed();
+                            local_stats.record_success(event.cmd_type, latency);
+                        }
+                        None => {
+                            // Channel closed
+                            tracing::debug!("Connection {} channel closed", connection_id);
+                            break;
+                        }
                     }
-
-                    let start = Instant::now();
-
-                    if let Err(e) = client.send_command(&event).await {
-                        local_stats.record_error(event.cmd_type, super::stats::ErrorType::ConnectionError);
-                        return Err(e);
-                    }
-
-                    if let Err(e) = client.read_response().await {
-                        local_stats.record_error(event.cmd_type, super::stats::ErrorType::ProtocolError);
-                        return Err(e);
-                    }
-
-                    let latency = start.elapsed();
-                    local_stats.record_success(event.cmd_type, latency);
                 }
                 _ = interval.tick() => {
-                    // Check exit flag on timer tick
-                    if should_exit.load(Ordering::Relaxed) {
-                        break;
-                    }
-
-                    // Send snapshot every 2 seconds
-                    let snapshot = local_stats.snapshot();
-                    if stats_tx.send(snapshot).await.is_err() {
+                    if stats_tx.send(local_stats.snapshot()).await.is_err() {
                         break; // Receiver dropped
                     }
-                }
-                else => {
-                    // Channel closed, send final snapshot
-                    let snapshot = local_stats.snapshot();
-                    let _ = stats_tx.send(snapshot).await;
-                    break;
                 }
             }
         }
 
+        let _ = stats_tx.send(local_stats.snapshot()).await;
+        tracing::debug!("Connection {} exiting", connection_id);
         Ok(())
     });
 
